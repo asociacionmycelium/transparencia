@@ -13,7 +13,7 @@
 9. **Arquitectura técnica**: stack, hosting, formato de lotes, API.
 
 ## Pendientes operativos (24/11/2026)
-- **Dominio verificado en GitHub**: el TXT ya está en el DNS de Hostalia; falta pulsar *Verify* cuando propague.
+- ~~**Dominio verificado en GitHub**~~: hecho el 24/11/2026 (`asociacionmycelium.org`).
 - **Segunda persona owner** de la organización en GitHub (P-002 en [`junta/pendientes.md`](https://github.com/asociacionmycelium/documentos/blob/main/junta/pendientes.md)).
 - **Fecha de la próxima Junta**: renombrar `junta/AAAA-MM-DD-orden-del-dia.md` y convocar por medios electrónicos con 48 horas de antelación (art. 21.1 de los Estatutos).
 - **Cotejar en fuente primaria las citas legales de `docs/00` a `docs/05`**, escritas el 23/11/2026 antes de la regla de no citar de memoria, con el subagente `verificador-legal`. Ya verificadas el 24/11: los arts. 5.2, 7.1.b, 10, 21 y 32 de la ley de asociaciones y el art. 3 de la ley de transparencia (`docs/00`).
