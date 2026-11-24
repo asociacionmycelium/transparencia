@@ -1,0 +1,18 @@
+# Bloquea la publicación accidental de documentos firmados o datos personales.
+name: guardia
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  datos-personales:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: scripts/guardia.sh historia

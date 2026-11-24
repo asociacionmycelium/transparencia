@@ -1,0 +1,18 @@
+# Preferencias personales y ajustes locales de Claude Code
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Nunca se versionan documentos firmados ni libros de la asociación
+*.pdf
+*.p7s
+*.xsig
+*.docx
+*.doc
+*.odt
+*.xlsx
+*.xls
+*.ods
+
+# Variables de entorno y secretos
+.env
+.env.*

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Activar una vez por clon: git config core.hooksPath .githooks
+exec "$(git rev-parse --show-toplevel)/scripts/guardia.sh" pre-push
