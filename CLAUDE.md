@@ -8,7 +8,8 @@ Lee `README.md` y después `docs/` en orden. `docs/01-vision-y-decisiones.md` co
 ## Estado a 24/11/2026
 - Solo diseño. No hay código.
 - La asociación está constituida (9/11/2026) y con NIF provisional, pero la **inscripción en el Registro Nacional sigue en trámite** y **no hay cuenta bancaria**.
-- Repositorios en GitHub, organización `asociacionmycelium`: este (`transparencia`, nombre provisional) y `documentos` (manifiesto y estatutos).
+- Repositorios en GitHub, organización `asociacionmycelium`: este (`transparencia`, nombre provisional) y `documentos` (manifiesto, estatutos y registro de la Junta en `junta/`). Organización endurecida (D23); publicación con guardia y revisor (D22).
+- Pendientes operativos en `docs/06-hoja-de-ruta.md`: verificar el dominio, segunda owner, fecha de la próxima Junta.
 - Siguiente tarea: **landing de la asociación** con Claude Design (ver `docs/07-landing.md`). No crearla hasta que la Junta lo pida.
 
 ## Estilo de los textos públicos
