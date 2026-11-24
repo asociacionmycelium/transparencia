@@ -21,6 +21,9 @@ Cercano, nada comercial, sin justificarse. Sin el marco moral "hacer el bien"; s
 - Nombres de producto: comprobar disponibilidad en OEPM y EUIPO antes de lanzar.
 - Documentos institucionales: viven en el repositorio público `documentos`, separado de este. Nunca subir PDF firmados ni el acta fundacional; nunca DNI ni domicilios particulares. El domicilio social solo aparece en los Estatutos (y en el aviso legal si es obligatorio).
 
+## Asuntos para la Junta
+Lo que necesite conocimiento o acuerdo de la Junta Directiva se apunta en [`junta/pendientes.md`](https://github.com/asociacionmycelium/documentos/blob/main/junta/pendientes.md) del repositorio `documentos`, con su origen y el artículo de los Estatutos que lo ampara.
+
 ## Antes de cada push (obligatorio)
 Hasta la inscripción no se publican datos de socios: ni nombres, ni nombres unidos a cargos, ni correos personales, ni domicilios.
 1. Invoca el subagente `revisor-publicacion` con el rango que se va a subir (`git log origin/main..HEAD`; en el primer push, todo el árbol). Si devuelve BLOQUEAR, corrige antes de seguir.
