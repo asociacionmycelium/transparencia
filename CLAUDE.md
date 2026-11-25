@@ -5,10 +5,11 @@ Plataforma de transparencia **open source** impulsada por la Asociación Myceliu
 
 Lee `README.md` y después `docs/` en orden. `docs/01-vision-y-decisiones.md` contiene el registro de decisiones: no las reabras sin que la Junta lo pida.
 
-## Estado a 24/11/2026
+## Estado a 25/11/2026
 - Solo diseño. No hay código.
 - La asociación está constituida (9/11/2026) y con NIF provisional, pero la **inscripción en el Registro Nacional sigue en trámite** y **no hay cuenta bancaria**.
 - Repositorios en GitHub, organización `asociacionmycelium`: este (`transparencia`, nombre provisional) y `documentos` (manifiesto, estatutos y registro de la Junta en `junta/`). Organización endurecida (D23); publicación con guardia y revisor (D22).
+- Sistema contable decidido (D25, doc 02): Odoo Community 19.0 + OCA, con MCP autoalojado. Se pone en marcha cuando haya cuenta bancaria; la Junta debe conocerlo (P-011).
 - Pendientes operativos en `docs/06-hoja-de-ruta.md`: segunda owner, fecha de la próxima Junta, cotejar las citas legales de `docs/00`–`05`. Dominio `asociacionmycelium.org` verificado en GitHub.
 - Siguiente tarea: **landing de la asociación** con Claude Design (ver `docs/07-landing.md`). No crearla hasta que la Junta lo pida.
 
