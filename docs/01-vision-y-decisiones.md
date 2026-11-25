@@ -54,6 +54,11 @@ Una plataforma open source y autoalojable que cualquier asociación pueda conect
 | D23 | Endurecimiento de GitHub: commits firmados con SSH; en `main`, ruleset sin borrado ni force-push, historial lineal y firma obligatoria; acciones fijadas por SHA completo con Dependabot; 2FA obligatoria; los miembros no crean, borran ni cambian la visibilidad de repositorios; escaneo de secretos, protección de push y aviso privado de vulnerabilidades | Un proyecto de verificabilidad debe poder demostrar quién cambió qué. Descartado: exigir PR para cada cambio, que con un solo desarrollador solo añade fricción |
 | D24 | Los asuntos para la Junta Directiva se registran en [`documentos/junta/`](https://github.com/asociacionmycelium/documentos/tree/main/junta) (pendientes con id, tipo, origen y artículo; orden del día por reunión). El acta oficial no va al repositorio: la levanta la Secretaría-Tesorería y va al libro de actas. Qué se publica de cada reunión lo decide la Junta (P-006) | Que no se olvide nada de lo que hay que ratificar y que la agenda del órgano de gobierno sea pública. Descartado: GitHub Issues, que no viven en git, atan a GitHub y exigirían una cuenta de GitHub a quien tenga que consultarlos |
 
+## Decisiones de 25/11/2026
+| # | Decisión | Motivo |
+|---|---|---|
+| D25 | Concreta D14. Sistema contable: **Odoo Community 19.0 + módulos OCA**, autoalojado en red privada. Acceso de IA por MCP con `erpipe-org/mcp-odoo` autoalojado: al principio en solo lectura, después escribe solo borradores que contabiliza una persona, y deniega los campos personales de los socios mientras el modelo sea externo. Detalle en doc 02 | En 19.0 ya están el plan contable de entidades sin fines lucrativos, sus cuentas anuales, Norma 43, CAMT y la conciliación; 20.0 aún no tiene OCA; se empieza sin datos que migrar. El MCP no exige un módulo propietario en Odoo. Descartado: ERPNext, sin plan contable español oficial |
+
 ## Propuestas de Claude pendientes de confirmar
 - Voto **no vinculable** a la persona incluso para la propia entidad (credenciales anónimas con nullifier por votación), manteniendo un seudónimo estable para proponer y comentar. Ver doc 04.
 - Resultados de votación **desglosados por nivel de verificación**.

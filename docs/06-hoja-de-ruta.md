@@ -23,4 +23,4 @@
 Lectura del DNIe con JMRTD + autenticación pasiva contra la lista del BSI + HMAC (doc 03). Puede hacerse en cualquier momento.
 
 ## Elección del ERP
-Aplazada hasta abrir la cuenta bancaria; candidato preferente Odoo Community + OCA l10n-spain (doc 02).
+Decidido el 25/11/2026 (D25, doc 02): Odoo Community 19.0 + OCA, con MCP autoalojado. La puesta en marcha espera a la cuenta bancaria.
