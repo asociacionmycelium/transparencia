@@ -1,0 +1,4 @@
+# Claves con las que se firman los cambios de documentos (formato allowed_signers
+# de ssh-keygen). genera.py da un cambio por «Verificada» solo si lo firma una de
+# estas. El principal es «documentos»: ni correos ni nombres. Ver web/README.md.
+documentos namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHWGm4/BDfZNRcN0jKjuLUfZ+AT1+tSM2BKUnNv/CjRl

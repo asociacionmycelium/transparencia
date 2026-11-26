@@ -15,6 +15,10 @@ tiene otra fuente. La maqueta de demo/ es la guía de diseño y no se toca: lo
 que aquí falta (cuentas, acuerdos, propuestas, datos) está allí con datos de
 ejemplo, y llega a esta página cuando haya datos de verdad (issues #2 a #5).
 
+Las firmas de documentos se comprueban contra las claves de web/firmantes, y el
+guion se para si una fuente cambia de forma, si una seta se queda sin filamento
+o si un hueco (class="hueco") pierde hidden: mejor no publicar que publicar algo roto.
+
 La página no lleva JavaScript: lo que haya que calcular se calcula aquí.
 
 Uso: python3 web/genera.py   (solo biblioteca estándar; se puede repetir)
@@ -30,10 +34,12 @@ import subprocess
 import sys
 import zlib
 from html import escape
+from html.parser import HTMLParser
 from pathlib import Path
 
 AQUI = Path(__file__).parent
 PAGINA = AQUI / "publico" / "index.html"
+FIRMANTES = AQUI / "firmantes"
 DOCUMENTOS = Path(os.environ.get("MYCELIUM_DOCUMENTOS", AQUI.parent.parent / "documentos")).resolve()
 GITHUB_DOCUMENTOS = "https://github.com/asociacionmycelium/documentos"
 NOMBRE = "Asociación Mycelium"
@@ -152,12 +158,17 @@ def cambios():
     """Últimos commits de documentos: fecha, qué cambió y si la firma es buena.
 
     Sin autor a propósito: junto al cargo, identificaría a una persona.
-    La firma se comprueba con la configuración de git de esta máquina
-    (%G?); si no da «G», la página no la da por buena.
+    La firma (%G?) se comprueba contra las claves de web/firmantes, que se
+    pasan a git solo para esta llamada (-c gpg.ssh.allowedSignersFile=): ni la
+    configuración de git de esta máquina ni la de documentos cuentan, así que
+    sale igual aquí y en el CI. Si no da «G», la página no la da por buena.
     """
+    if not FIRMANTES.is_file():
+        para(f"no encuentro {FIRMANTES}: sin la lista de claves no se puede comprobar ninguna firma")
     try:
         salida = subprocess.run(
-            ["git", "-C", str(DOCUMENTOS), "log", f"-n{N_CAMBIOS}", "--format=%H%x1f%cs%x1f%G?%x1f%s"],
+            ["git", "-c", f"gpg.ssh.allowedSignersFile={FIRMANTES}", "-C", str(DOCUMENTOS), "log",
+             f"-n{N_CAMBIOS}", "--format=%H%x1f%cs%x1f%G?%x1f%s"],
             check=True, capture_output=True, text=True).stdout
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         para(f"no puedo leer el historial de {DOCUMENTOS}: {e}")
@@ -664,6 +675,32 @@ def bloque_tarjeta(titular):
     return "\n" + "\n".join(f'<meta property="{p}" content="{escape(v, quote=True)}">' for p, v in lineas) + "\n"
 
 
+class _Huecos(HTMLParser):
+    """Apunta la línea de cada etiqueta con clase «hueco» que no lleva hidden."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.visibles = []
+
+    def handle_starttag(self, tag, attrs):
+        atributos = dict(attrs)
+        if "hueco" in (atributos.get("class") or "").split() and "hidden" not in atributos:
+            self.visibles.append(self.getpos()[0])
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+
+
+def comprobar_huecos(html):
+    """Para si algún hueco (class="hueco") ha perdido hidden: se vería vacío en la página."""
+    huecos = _Huecos()
+    huecos.feed(html)
+    huecos.close()
+    if huecos.visibles:
+        linea = huecos.visibles[0]
+        para(f"hay un hueco a la vista (class=\"hueco\" sin hidden) en la línea {linea} de {PAGINA}")
+
+
 # ---------- Montaje ----------
 
 def main():
@@ -687,6 +724,7 @@ def main():
         if not patron.search(html):
             para(f"falta el hueco {nombre} en {PAGINA}")
         html = patron.sub(lambda m: m.group(1) + contenido + m.group(2), html)
+    comprobar_huecos(html)
     escribe_tarjeta(png, crudo)
     PAGINA.write_text(html, encoding="utf-8")
     print(f"fuentes: {DOCUMENTOS}\nfilamentos: {n0}\n{len(html) / 1024:.0f} KB\ntarjeta: {len(png) / 1024:.0f} KB")
