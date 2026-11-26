@@ -13,6 +13,9 @@ CLAUDE.local.md
 *.xls
 *.ods
 
+# Capturas y registros del navegador de pruebas
+.playwright-mcp/
+
 # Variables de entorno y secretos
 .env
 .env.*

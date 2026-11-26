@@ -2,7 +2,7 @@
 
 > Nombre del producto: **pendiente de decidir**. Mycelium es la asociación ("contenedor de valores"); cada plataforma que lance tendrá identidad propia.
 
-Documentación de diseño acordada en la sesión de trabajo del **23 de noviembre de 2026** entre la Junta Directiva de Mycelium y Claude. No hay código todavía; solo una maqueta de diseño en `demo/`.
+Documentación de diseño acordada en la sesión de trabajo del **23 de noviembre de 2026** entre la Junta Directiva de Mycelium y Claude. Hay una maqueta de diseño en `demo/` y, en `web/`, el borrador de la página que se publicará, con lo que existe de verdad hoy.
 
 ## Estado
 
@@ -23,7 +23,8 @@ Documentación de diseño acordada en la sesión de trabajo del **23 de noviembr
 | `docs/05-privacidad-y-legal.md` | RGPD, retribuciones, LSSI, menores |
 | `docs/06-hoja-de-ruta.md` | Pendientes y orden propuesto |
 | `docs/07-landing.md` | Encargo de la landing (siguiente paso) |
-| `demo/` | Maqueta de diseño de la landing y la plataforma (no funcional, datos inventados) |
+| `demo/` | Maqueta de diseño de la landing y la plataforma (no funcional, datos inventados). Es la guía y no se toca |
+| `web/` | Página publicable: se genera desde las fuentes reales y solo enseña lo que existe (borrador hasta que la Junta decida) |
 | [`documentos`](https://github.com/asociacionmycelium/documentos) | Manifiesto y Estatutos en versión pública (repositorio aparte) |
 
 ## Antes de publicar
