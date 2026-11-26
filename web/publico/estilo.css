@@ -267,14 +267,14 @@ h1 {
 /* ---------- Pantallas estrechas ---------- */
 
 @media (max-width: 52rem) {
-  :root { --ancho-red: 300%; }
+  :root { --ancho-red: 300%; --tenue: color-mix(in srgb, var(--hifa) 75%, var(--tierra)); }
   body { font-size: 1.0625rem; }
   .tramo { grid-template-columns: minmax(0, 1fr); }
   .bajo { display: block; padding-right: var(--margen); }
-  /* Aquí la red pasa por detrás del texto: se queda en un rastro. */
-  .red .g0 { --o: 0.17; }
-  .red .g1 { --o: 0.12; }
-  .red .g2, .red .g3 { --o: 0.09; }
+  /* Aquí la red pasa por detrás del texto: se queda en un rastro, y el texto tenue sube para que siga legible (AA 4,5:1 con dos troncos cruzados; #6). */
+  .red .g0 { --o: 0.10; }
+  .red .g1 { --o: 0.07; }
+  .red .g2, .red .g3 { --o: 0.05; }
   .registro { font-size: 0.93rem; }
   .registro td, .registro th { padding-right: 0.6rem; }
   .sonda {
