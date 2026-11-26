@@ -20,7 +20,8 @@ El trabajo concreto de cada paso está en las [issues](https://github.com/asocia
 - **Fecha de la próxima Junta**: renombrar `junta/AAAA-MM-DD-orden-del-dia.md` y convocar por medios electrónicos con 48 horas de antelación (art. 21.1 de los Estatutos).
 - **Cotejar en fuente primaria las citas legales de `docs/00` a `docs/05`**, escritas el 23/11/2026 antes de la regla de no citar de memoria, con el subagente `verificador-legal`. Ya verificadas el 24/11: los arts. 5.2, 7.1.b, 10, 21 y 32 de la ley de asociaciones y el art. 3 de la ley de transparencia (`docs/00`).
 - Activar en la organización *Require actions to be pinned to a full-length commit SHA* si no se ha hecho (las acciones ya están fijadas, D23).
-- **Maqueta `demo/`** (D26), por pulir: dirección propia para cada asiento, acuerdo y propuesta; probarla en Firefox bajando por la página, con teclado y con "reducir movimiento"; medir el contraste; servir la tipografía desde el dominio propio; aviso legal.
+- **Maqueta `demo/`** (D26): es la guía y no se toca (D28). Lo que quedaba por pulir pasa a la página publicable.
+- **Página publicable `web/`** (D28), por pulir: dirección propia para cada asiento, acuerdo y propuesta cuando lleguen (#2, #4, #5); medir el contraste; favicon; «Información general» del pie (ver `docs/07`). Hecho el 26/11/2026: tipografía servida desde la propia página.
 
 ## Prueba de concepto independiente
 Lectura del DNIe con JMRTD + autenticación pasiva contra la lista del BSI + HMAC (doc 03). Puede hacerse en cualquier momento.
