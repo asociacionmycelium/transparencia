@@ -1,0 +1,402 @@
+/* Maqueta de diseño. Sin JavaScript: el estado vive en casillas (:has), el
+   crecimiento de la red y la sonda en animaciones ligadas al scroll, las
+   fichas en <dialog> con command/commandfor y las aclaraciones en popover. */
+
+:root {
+  --albero: #E2AE45;
+  --tinta: #1F1A14;
+  --tierra: #2B1F26;
+  --hifa: #EFE8DA;
+  --lila: #A999E0;
+
+  --superficie: var(--albero);
+  --tenue: color-mix(in srgb, var(--hifa) 68%, var(--tierra));
+  --raya: color-mix(in srgb, var(--hifa) 20%, transparent);
+
+  --fuente: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --mono: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+  --margen: clamp(1.1rem, 4vw, 4rem);
+  --ancho-red: 70%;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-padding-top: 2rem; }
+
+body {
+  margin: 0;
+  background: var(--tierra);
+  color: var(--hifa);
+  font: 400 1.125rem/1.6 var(--fuente);
+  font-variant-numeric: tabular-nums;
+  /* Las secciones publican su posición en el scroll; la sonda las lee. */
+  timeline-scope: --a-la-vista, --cuentas, --decisiones, --propuestas, --datos, --invitacion;
+}
+
+body:has(#ent-otra:checked) { --superficie: #8EC3C0; }
+
+h1, h2, h3, p, ol, ul, dl, dd, figure, fieldset, pre { margin: 0; padding: 0; }
+ol, ul { list-style: none; }
+a { color: inherit; text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
+code, pre { font-family: var(--mono); font-size: 0.9em; }
+
+.salto { position: absolute; left: -999rem; }
+.salto:focus { left: 1rem; top: 1rem; z-index: 10; background: var(--hifa); color: var(--tinta); padding: 0.5rem 1rem; }
+
+/* ---------- Estado de la maqueta ---------- */
+
+.ejemplo, .solo-otra, .aviso-ejemplo { display: none; }
+body:has(#ejemplo:checked) .ejemplo { display: block; }
+body:has(#ejemplo:checked) .vacio { display: none; }
+body:has(#ent-otra:checked) .solo-otra { display: block; }
+body:has(#ent-otra:checked) .solo-mycelium { display: none; }
+
+.maqueta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.75rem;
+  align-items: center;
+  padding: 0.5rem var(--margen);
+  background: var(--tinta);
+  color: var(--hifa);
+  font-size: 0.9rem;
+}
+.maqueta p { margin-right: auto; }
+.maqueta fieldset { border: 0; display: flex; gap: 0.25rem 1rem; flex-wrap: wrap; }
+.maqueta legend { float: left; margin-right: 1rem; color: var(--tenue); }
+.maqueta input { accent-color: var(--albero); }
+
+body:has(#ejemplo:checked) .aviso-ejemplo {
+  display: block;
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 5;
+  padding: 0.4rem var(--margen);
+  background: var(--lila);
+  color: var(--tinta);
+  font-size: 0.9rem;
+  text-align: center;
+}
+.aviso-ejemplo label { text-decoration: underline; cursor: pointer; }
+
+/* ---------- Superficie ---------- */
+
+.superficie {
+  position: relative;
+  overflow-x: clip;
+  background: var(--superficie);
+  color: var(--tinta);
+  padding: 0 var(--margen) clamp(11rem, 20vw, 16rem);
+}
+
+.cabecera {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-block: 1.5rem;
+}
+.marca { font-weight: 700; }
+.nota { font-weight: 400; }
+
+h1, .h1 {
+  max-width: 15ch;
+  margin-top: clamp(3rem, 11vh, 8rem);
+  font-size: clamp(2.7rem, 8.4vw, 7.25rem);
+  font-weight: 250;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.estado {
+  max-width: 34rem;
+  margin-top: clamp(2rem, 5vh, 3.5rem);
+  padding-left: 1rem;
+  border-left: 3px solid currentColor;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.tramo {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 40rem);
+  gap: 1rem 3rem;
+  margin-top: clamp(4.5rem, 14vh, 9rem);
+}
+.tramo h2 { font-size: 1.5rem; font-weight: 700; line-height: 1.2; text-wrap: balance; }
+.tramo p + p { margin-top: 1.1em; }
+.tramo div p:first-child { font-size: 1.3rem; line-height: 1.5; }
+
+.setas {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  width: var(--ancho-red);
+  pointer-events: none;
+}
+.setas svg { display: block; width: 100%; height: auto; overflow: visible; }
+.setas path { fill: var(--tierra); }
+
+/* ---------- Bajo tierra ---------- */
+
+.bajo {
+  position: relative;
+  overflow: clip;
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 43rem);
+  column-gap: 3rem;
+  /* El tercio derecho es de la red; el texto no entra ahí. */
+  padding: clamp(4rem, 12vh, 7rem) 32% 5rem var(--margen);
+}
+
+.red {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--ancho-red);
+  pointer-events: none;
+  view-timeline: --red block;
+}
+.red svg { display: block; width: 100%; height: auto; }
+.red path { fill: none; stroke: var(--hifa); }
+.red .g0 { stroke-width: 3.2; opacity: 0.5; }
+.red .g1 { stroke-width: 2; opacity: 0.38; }
+.red .g2 { stroke-width: 1.3; opacity: 0.3; }
+.red .g3 { stroke-width: 0.9; opacity: 0.24; }
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    /* Cada filamento crece cuando su tramo de página entra en pantalla. */
+    .red path {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      animation: crecer linear both;
+      animation-timeline: --red;
+      animation-range: cover var(--i) cover var(--f);
+    }
+  }
+}
+@keyframes crecer { to { stroke-dashoffset: 0; } }
+
+.sonda {
+  position: sticky;
+  top: 2rem;
+  align-self: start;
+  z-index: 1;
+  font-size: 0.95rem;
+}
+.sonda ol { border-left: 1px solid var(--raya); }
+.sonda a {
+  display: block;
+  padding: 0.3rem 0 0.3rem 0.9rem;
+  margin-left: -2px;
+  border-left: 3px solid transparent;
+  color: var(--tenue);
+  text-decoration: none;
+  line-height: 1.3;
+}
+.sonda a:hover { color: var(--hifa); }
+
+@supports (animation-timeline: view()) {
+  /* Activo mientras la sección cruza la mitad de la pantalla. */
+  .sonda a { animation: aqui linear; animation-range: cover 50vh cover calc(100% - 50vh); }
+  .sonda a[href="#a-la-vista"] { animation-timeline: --a-la-vista; }
+  .sonda a[href="#cuentas"] { animation-timeline: --cuentas; }
+  .sonda a[href="#decisiones"] { animation-timeline: --decisiones; }
+  .sonda a[href="#propuestas"] { animation-timeline: --propuestas; }
+  .sonda a[href="#datos"] { animation-timeline: --datos; }
+  .sonda a[href="#invitacion"] { animation-timeline: --invitacion; }
+}
+@keyframes aqui { from, to { color: var(--albero); border-left-color: var(--albero); } }
+
+#a-la-vista { view-timeline: --a-la-vista block; }
+#cuentas { view-timeline: --cuentas block; }
+#decisiones { view-timeline: --decisiones block; }
+#propuestas { view-timeline: --propuestas block; }
+#datos { view-timeline: --datos block; }
+#invitacion { view-timeline: --invitacion block; }
+
+.capas { position: relative; z-index: 1; min-width: 0; }
+.capas > section { padding-bottom: clamp(5rem, 16vh, 9rem); }
+.capas > section > h2 {
+  margin-bottom: 1.5rem;
+  font-size: clamp(2.2rem, 5vw, 3.75rem);
+  font-weight: 250;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.capas h3 { margin: 3rem 0 0.75rem; font-size: 1.2rem; font-weight: 700; line-height: 1.3; }
+.capas p { max-width: 40rem; }
+.capas p + p, .capas div + p, .capas p + div { margin-top: 1.1em; }
+.menor { color: var(--tenue); font-size: 0.95rem; line-height: 1.5; }
+
+.boton {
+  display: inline-block;
+  padding: 0.6rem 1.1rem;
+  border: 1.5px solid currentColor;
+  color: var(--albero);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.boton:hover { background: var(--albero); color: var(--tinta); border-color: var(--albero); }
+
+/* Flujos */
+.flujos { margin-top: 1rem; }
+.flujos ol { display: grid; }
+.flujos li { padding: 0.5rem 0.45rem; font-size: 0.85rem; line-height: 1.25; min-width: 0; hyphens: auto; }
+.flujos li + li { border-left: 2px solid var(--tierra); }
+.flujos li b { display: block; font-weight: 600; }
+.flujos .origen li { background: var(--lila); color: var(--tinta); }
+.flujos .destino li { background: var(--albero); color: var(--tinta); }
+.flujos .destino li.queda { background: var(--lila); }
+.flujos svg { display: block; width: 100%; height: clamp(7rem, 18vw, 11rem); background: var(--tierra); }
+.flujos svg path { stroke: var(--tierra); stroke-width: 2; vector-effect: non-scaling-stroke; opacity: 0.9; }
+
+/* Registros */
+.registro { width: 100%; margin-top: 1rem; border-collapse: collapse; font-size: 0.98rem; line-height: 1.4; background: color-mix(in srgb, var(--tierra) 88%, transparent); }
+.registro th { padding: 0 0.9rem 0.4rem 0; text-align: left; font-weight: 400; font-size: 0.9rem; color: var(--tenue); }
+.registro td { padding: 0.6rem 0.9rem 0.6rem 0; border-top: 1px solid var(--raya); vertical-align: top; }
+.registro .num { text-align: right; padding-right: 0; white-space: nowrap; }
+.registro td:nth-child(2) { white-space: nowrap; }
+.registro small { display: block; color: var(--tenue); font-size: 0.88rem; }
+.entra { color: var(--lila); }
+.sale { color: var(--albero); }
+.registro button, .duda {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.duda { color: var(--albero); }
+
+.aclaracion {
+  position-area: bottom span-right;
+  position-try-fallbacks: flip-block, flip-inline;
+  inset: auto;
+  margin: 0.4rem 0;
+  max-width: min(26rem, calc(100vw - 2rem));
+  padding: 1rem 1.2rem;
+  border: 0;
+  background: var(--hifa);
+  color: var(--tinta);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Acuerdos */
+details { border-top: 1px solid var(--raya); padding: 0.9rem 0; }
+details:last-of-type { border-bottom: 1px solid var(--raya); }
+summary { cursor: pointer; font-weight: 600; line-height: 1.35; }
+summary .n { margin-right: 0.6rem; font-weight: 400; color: var(--tenue); }
+details > p { margin: 0.8rem 0 0; }
+.votos { margin-top: 0.9rem; display: grid; gap: 0.2rem; font-size: 0.98rem; }
+.votos div { display: grid; grid-template-columns: 12rem 1fr; gap: 1rem; }
+.votos dt { color: var(--tenue); }
+.votos .aparte { color: var(--albero); }
+
+/* Propuestas */
+.propuesta { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--raya); }
+.propuesta h3 { margin: 0 0 0.9rem; }
+.barra { display: flex; height: 0.7rem; gap: 2px; max-width: 40rem; }
+.barra span:first-child { flex: var(--si) 0 0; background: var(--lila); }
+.barra span:last-child { flex: var(--no) 0 0; background: var(--albero); }
+.capas .recuento { margin-top: 0.5rem; }
+.capas .recuento + .menor { margin-top: 0.15rem; }
+.respuesta { padding-left: 1rem; border-left: 3px solid var(--hifa); }
+
+/* Datos */
+.descargas { margin-top: 1rem; display: grid; gap: 0.4rem; }
+.descargas a { font-family: var(--mono); font-size: 0.95em; margin-right: 0.4rem; }
+pre { margin-top: 1rem; padding: 1rem 1.2rem; overflow-x: auto; background: var(--tinta); line-height: 1.7; }
+
+.pie { padding-top: 2rem; border-top: 1px solid var(--raya); font-size: 0.95rem; color: var(--tenue); }
+.pie ul { display: flex; flex-wrap: wrap; gap: 0.4rem 1.75rem; margin-bottom: 1rem; }
+.pie a { color: var(--hifa); }
+
+/* Ficha de asiento */
+dialog {
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 2rem;
+  border: 0;
+  background: var(--hifa);
+  color: var(--tinta);
+  font-size: 1rem;
+  opacity: 1;
+  transition: opacity 0.18s, display 0.18s allow-discrete, overlay 0.18s allow-discrete;
+}
+@starting-style { dialog[open] { opacity: 0; } }
+dialog::backdrop { background: rgb(from var(--tinta) r g b / 0.7); }
+dialog h2 { font-size: 1.6rem; font-weight: 300; line-height: 1.2; }
+dialog .importe { margin-top: 0.3rem; font-size: 1.6rem; font-weight: 700; }
+dialog dl { margin-top: 1.5rem; display: grid; gap: 0.7rem; }
+dialog dt { font-size: 0.88rem; opacity: 0.75; }
+dialog dd code { overflow-wrap: anywhere; }
+dialog .cerrar {
+  margin-top: 1.75rem;
+  padding: 0.55rem 1.1rem;
+  border: 1.5px solid currentColor;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.justificante {
+  margin-top: 0.4rem;
+  padding: 0.9rem 1rem;
+  background: #fff;
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.tapado { display: inline-block; width: 7.5em; height: 0.95em; background: var(--tinta); vertical-align: -0.12em; }
+
+/* ---------- Pantallas estrechas ---------- */
+
+@media (max-width: 52rem) {
+  :root { --ancho-red: 300%; }
+  body { font-size: 1.0625rem; }
+  .tramo { grid-template-columns: minmax(0, 1fr); }
+  .bajo { display: block; padding-right: var(--margen); }
+  /* Aquí la red pasa por detrás del texto: se queda en un rastro. */
+  .red .g0 { opacity: 0.17; }
+  .red .g1 { opacity: 0.12; }
+  .red .g2, .red .g3 { opacity: 0.09; }
+  .registro { font-size: 0.93rem; }
+  .registro td, .registro th { padding-right: 0.6rem; }
+  .sonda {
+    top: 0;
+    z-index: 3;
+    margin: 0 calc(-1 * var(--margen)) 2.5rem;
+    padding: 0 var(--margen);
+    background: var(--tierra);
+    border-bottom: 1px solid var(--raya);
+  }
+  .sonda ol { display: flex; gap: 1.25rem; overflow-x: auto; border-left: 0; scrollbar-width: none; }
+  .sonda a { margin: 0; padding: 0.7rem 0 0.55rem; border-left: 0; border-bottom: 3px solid transparent; white-space: nowrap; }
+  @keyframes aqui { from, to { color: var(--albero); border-bottom-color: var(--albero); } }
+  html { scroll-padding-top: 4rem; }
+  .flujos li { font-size: 0; padding: 0.35rem; }
+  .flujos li::before { content: attr(data-letra); font-size: 0.85rem; font-weight: 700; }
+  .flujos .leyenda { display: block; }
+  .registro td:nth-child(2), .registro th:nth-child(2) { display: none; }
+  .lotes td:nth-child(2), .lotes th:nth-child(2) { display: table-cell; }
+  .lotes td:nth-child(3), .lotes th:nth-child(3) { display: none; }
+  .votos div { grid-template-columns: 1fr; gap: 0; margin-bottom: 0.4rem; }
+}
+.flujos .leyenda { display: none; margin-top: 0.75rem; font-size: 0.92rem; color: var(--tenue); }
+@media (max-width: 52rem) { .flujos .leyenda { display: block; } }
+
+.capas details:first-of-type { margin-top: 1.25rem; }
+.capas details + p { margin-top: 1rem; }
