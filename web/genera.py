@@ -180,6 +180,12 @@ def primera_frase(texto):
     return re.split(r"\.\s+(?=[A-ZÁÉÍÓÚÑ¿¡])", texto, maxsplit=1)[0].rstrip(".") + "."
 
 
+def desde_fuera(texto):
+    """pendientes.md vive en documentos: «este repositorio» se lee raro en la página (#6)."""
+    texto = re.sub(r"\beste repositorio\b", "el repositorio documentos", texto)
+    return re.sub(r"\bEste repositorio\b", "El repositorio documentos", texto)
+
+
 def asuntos():
     """Una fila por asunto de junta/pendientes.md: id, primera frase y estado."""
     filas, cabecera = [], None
@@ -197,7 +203,7 @@ def asuntos():
         if len(celdas) != len(CABECERA_ASUNTOS):
             para(f"fila de pendientes.md con {len(celdas)} columnas: {linea[:60]}…")
         a = dict(zip(CABECERA_ASUNTOS, celdas))
-        filas.append(f'<tr><td>{escape(a["Id"])}</td><td>{escape(primera_frase(texto_plano(a["Asunto"])))}</td>'
+        filas.append(f'<tr><td>{escape(a["Id"])}</td><td>{escape(desde_fuera(primera_frase(texto_plano(a["Asunto"]))))}</td>'
                      f'<td>{escape(texto_plano(a["Estado"]))}</td></tr>')
     if not filas:
         para("pendientes.md no tiene asuntos")
