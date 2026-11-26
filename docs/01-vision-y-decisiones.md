@@ -59,6 +59,11 @@ Una plataforma open source y autoalojable que cualquier asociación pueda conect
 |---|---|---|
 | D25 | Concreta D14. Sistema contable: **Odoo Community 19.0 + módulos OCA**, autoalojado en red privada. Acceso de IA por MCP con `erpipe-org/mcp-odoo` autoalojado: al principio en solo lectura, después escribe solo borradores que contabiliza una persona, y deniega los campos personales de los socios mientras el modelo sea externo. Detalle en doc 02 | En 19.0 ya están el plan contable de entidades sin fines lucrativos, sus cuentas anuales, Norma 43, CAMT y la conciliación; 20.0 aún no tiene OCA; se empieza sin datos que migrar. El MCP no exige un módulo propietario en Odoo. Descartado: ERPNext, sin plan contable español oficial |
 
+## Decisiones de 26/11/2026
+| # | Decisión | Motivo |
+|---|---|---|
+| D26 | La maqueta de [`demo/`](../demo/README.md) es la **base de diseño** de la landing y de la plataforma, que son una sola página: arriba la superficie (manifiesto y estado del registro) y, al bajar, cuentas, decisiones, propuestas y datos. Sin datos, la página lo dice en vez de aparentar actividad. La red de filamentos se dibuja con la huella del último lote. La superficie (color, nombre, texto) es de cada entidad; lo demás es común (D1). Tipografía Atkinson Hyperlegible Next. La página no lleva JavaScript: lo que antes lo pedía se resuelve con HTML y CSS actuales, y lo que haya que calcular lo calcula el servidor. No fija el stack (doc 02) ni cierra si la landing se produce desde la maqueta o con Claude Design (doc 07). Es una base: quedan cosas por pulir | Transparencia es dejar mirar donde no se suele mirar: el diseño lo dice sin explicarlo. Menos código en el navegador es más fácil de mantener y funciona aunque el JavaScript falle. Descartado: una landing y una aplicación separadas, con un "entrar" entre las dos |
+
 ## Propuestas de Claude pendientes de confirmar
 - Voto **no vinculable** a la persona incluso para la propia entidad (credenciales anónimas con nullifier por votación), manteniendo un seudónimo estable para proponer y comentar. Ver doc 04.
 - Resultados de votación **desglosados por nivel de verificación**.

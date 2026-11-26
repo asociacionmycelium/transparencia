@@ -2,7 +2,7 @@
 
 ## Orden acordado
 0. ~~**Repositorio público de documentos institucionales**~~ (D16–D21): hecho el 24/11/2026 en [`documentos`](https://github.com/asociacionmycelium/documentos). Si el Registro pide cambios en los Estatutos, actualizarlos en un commit propio con el motivo. Tras la inscripción, publicar la composición de la Junta (art. 46.3 de los Estatutos, dentro del mes siguiente a la aprobación de las cuentas).
-1. **Landing de la asociación** (siguiente paso; ver `07-landing.md`). Motivo: aún no hay cuenta bancaria ni inscripción, así que no hay cuentas que publicar.
+1. **Landing de la asociación** (siguiente paso; ver `07-landing.md`). Base de diseño hecha el 26/11/2026 en [`demo/`](../demo/README.md) (D26): falta pulirla, enseñarla a la Junta (P-012) y decidir cómo se produce la definitiva. Motivo: aún no hay cuenta bancaria ni inscripción, así que no hay cuentas que publicar.
 2. **Alcance de la v1 de la plataforma.** Propuesta de Claude: solo cuentas públicas — agente publicando desde Excel/CSV, log verificable con anclaje y web sencilla. Útil desde el día uno y sin necesidad de identidad. Votación y gobierno en una segunda fase. Arrancar cuando haya cuenta bancaria.
 3. **Diseño RGPD del log** (doc 05).
 4. **Mecánica de propuestas y votación** (doc 04).
@@ -18,6 +18,7 @@
 - **Fecha de la próxima Junta**: renombrar `junta/AAAA-MM-DD-orden-del-dia.md` y convocar por medios electrónicos con 48 horas de antelación (art. 21.1 de los Estatutos).
 - **Cotejar en fuente primaria las citas legales de `docs/00` a `docs/05`**, escritas el 23/11/2026 antes de la regla de no citar de memoria, con el subagente `verificador-legal`. Ya verificadas el 24/11: los arts. 5.2, 7.1.b, 10, 21 y 32 de la ley de asociaciones y el art. 3 de la ley de transparencia (`docs/00`).
 - Activar en la organización *Require actions to be pinned to a full-length commit SHA* si no se ha hecho (las acciones ya están fijadas, D23).
+- **Maqueta `demo/`** (D26), por pulir: dirección propia para cada asiento, acuerdo y propuesta; probarla en Firefox bajando por la página, con teclado y con "reducir movimiento"; medir el contraste; servir la tipografía desde el dominio propio; aviso legal.
 
 ## Prueba de concepto independiente
 Lectura del DNIe con JMRTD + autenticación pasiva contra la lista del BSI + HMAC (doc 03). Puede hacerse en cualquier momento.
