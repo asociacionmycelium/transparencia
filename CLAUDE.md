@@ -6,13 +6,14 @@ Plataforma de transparencia **open source** impulsada por la Asociación Myceliu
 Lee `README.md` y después `docs/` en orden. `docs/01-vision-y-decisiones.md` contiene el registro de decisiones: no las reabras sin que la Junta lo pida.
 
 ## Estado a 26/11/2026
-- Solo diseño. No hay código de la plataforma. En `demo/` hay una maqueta que es la base de diseño de la landing y la plataforma (D26): una sola página, sin JavaScript; `demo/genera.py` rellena `index.html` con los datos de ejemplo. Lee `demo/README.md` antes de tocarla.
+- En `demo/` está la maqueta que es la **guía** de diseño (D26): una sola página, sin JavaScript, con datos de ejemplo. **No se toca** (D28).
+- En `web/` está el borrador de la **página publicable** (D28). `web/genera.py` la escribe desde las fuentes reales del repo `documentos` (manifiesto, cambios firmados sin autor, asuntos de la Junta). `web/publico/` es lo único que se despliega. Las secciones sin datos lo dicen y dejan un hueco oculto con su issue (#2 a #5). Lee `web/README.md` antes de tocarla.
 - La asociación está constituida (9/11/2026) y con NIF provisional, pero la **inscripción en el Registro Nacional sigue en trámite** y **no hay cuenta bancaria**.
 - Repositorios en GitHub, organización `asociacionmycelium`: este (`transparencia`, nombre provisional) y `documentos` (manifiesto, estatutos y registro de la Junta en `junta/`). Organización endurecida (D23); publicación con guardia y revisor (D22).
 - Sistema contable decidido (D25, doc 02): Odoo Community 19.0 + OCA, con MCP autoalojado. Se pone en marcha cuando haya cuenta bancaria; la Junta debe conocerlo (P-011).
 - Pendientes operativos en `docs/06-hoja-de-ruta.md`: segunda owner, fecha de la próxima Junta, cotejar las citas legales de `docs/00`–`05`. Dominio `asociacionmycelium.org` verificado en GitHub.
 - Backlog de desarrollo en las issues del repositorio, con `prioridad-1..4` (D27). Para elegir qué hacer, la skill `revisar-backlog`; `cerrar-sesion` las mantiene.
-- Siguiente tarea: issue #1, decidir qué enseña ya la página con lo que hay de verdad hoy y hacer esa versión desde la maqueta. Después, pulir la maqueta (lista en `docs/06`), enseñarla a la Junta (P-012) y decidir si la **landing** definitiva sale de ella o de Claude Design (`docs/07-landing.md`). No publicarla en el dominio hasta que la Junta lo pida.
+- Siguiente tarea: issue #6, pulir el borrador de `web/` (prueba en Firefox, contraste, favicon, «Información general» del pie). Después, enseñarlo a la Junta (P-012) y decidir si la **landing** definitiva sale de él o de Claude Design (`docs/07-landing.md`). No publicarlo en el dominio hasta que la Junta lo pida.
 
 ## Estilo de los textos públicos
 Cercano, nada comercial, sin justificarse. Sin el marco moral "hacer el bien"; se habla de quien mira por su interés propio o por el interés común.
