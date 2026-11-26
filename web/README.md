@@ -21,6 +21,7 @@ y abrir `http://127.0.0.1:8765/`. El generador lee el repositorio `documentos` d
 | `publico/` | Lo que se sirve o despliega, tal cual. Nada más |
 | `publico/index.html` | La página. Sin JavaScript (D26) |
 | `publico/estilo.css` | Todo el aspecto. Solo lo que usa la página; el resto está en `demo/estilo.css` |
+| `publico/favicon.svg` | El icono de la pestaña: una seta como las de la cabecera, tierra sobre albero. Escrito a mano |
 | `publico/fuentes/` | Atkinson Hyperlegible Next y Mono (SIL OFL 1.1, subconjunto latino de Fontsource), servidas desde aquí: la página no pide nada a terceros |
 
 ## De dónde sale cada sección
@@ -43,3 +44,9 @@ y abrir `http://127.0.0.1:8765/`. El generador lee el repositorio `documentos` d
 - Ningún dato de socios: ni nombres, ni autores de commits, ni correos personales. El domicilio, solo dentro de los Estatutos enlazados (D15).
 - Si una fuente cambia de forma (falta una sección del manifiesto, cambian las columnas de `pendientes.md`), el generador se para en vez de publicar algo a medias.
 - La red de filamentos también para el generador: cada seta tiene su filamento, ninguna rama empieza a crecer antes de que su madre llegue a donde nace y ningún punto se sale de la franja de la red.
+- Lo que sale de `documentos` se dice desde fuera: «este repositorio» en `pendientes.md` sale en la página como «el repositorio documentos» (`desde_fuera` en `genera.py`, #6).
+
+## Contraste
+Medido con WCAG 2 (mínimo AA, 4,5:1) el 26/11/2026 (#6). Sobre `--tierra`: texto y enlaces 12,98:1, tenue 6,74:1, lila 6,27:1, albero 7,82:1; tinta sobre albero, 8,53:1.
+
+En pantalla ancha el texto no llega a la franja de la red. En pantalla estrecha (≤52rem) la red pasa por detrás del texto: por eso allí es más tenue y `--tenue` sube al 75 % de hifa. Con dos troncos cruzados detrás, el peor caso, el tenue da 4,56:1 y el albero 4,52:1. Si cambian los colores o la opacidad de la red, hay que volver a medirlo.
