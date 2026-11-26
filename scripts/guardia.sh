@@ -28,8 +28,13 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 fallos=0
 falla() { printf 'guardia: %s\n' "$*" >&2; fallos=$((fallos + 1)); }
-# Quita tildes y diacríticos para que "Garcia" coincida con "García"
-plano() { LC_ALL=C.UTF-8 iconv -f UTF-8 -t ASCII//TRANSLIT; }
+# Quita tildes y diacríticos para que "Garcia" coincida con "García".
+# Sin iconv: la de glibc sale con código 1 ante un carácter que no tiene en ASCII (p. ej. «−»,
+# U+2212), aunque lo convierta, y con `set -e` la guardia se cortaba sin decir nada.
+plano() {
+  python3 -c 'import sys, unicodedata as u
+sys.stdout.write("".join(c for c in u.normalize("NFKD", sys.stdin.read()) if not u.combining(c)))'
+}
 
 revisar() {
   git rev-list "$@" > "$tmp/commits"
