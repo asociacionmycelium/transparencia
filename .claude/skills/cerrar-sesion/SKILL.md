@@ -27,6 +27,13 @@ Antes de consolidar, porque estos ficheros también son trabajo de la sesión:
 - **Hoja de ruta** → `docs/06-hoja-de-ruta.md`. Lo hecho se marca hecho con fecha y enlace; lo nuevo pendiente entra en su sitio del orden.
 - **Estado** → la sección "Estado a DD/MM/AAAA" de `CLAUDE.md`, con la fecha de hoy y el siguiente paso.
 - **Asuntos para la Junta** → `$DOCS/junta/pendientes.md`. Todo lo que haya que ratificar, acordar o de lo que haya que dar cuenta, con id `P-NNN`, tipo, origen y artículo de los Estatutos que lo ampara. Si hay reunión convocada, al orden del día. Ver `$DOCS/junta/README.md`.
+- **Trabajo pendiente de desarrollo y diseño** → issue en `asociacionmycelium/transparencia` con `enhancement`/`bug`/`documentation` y **una** prioridad (lo que lee `revisar-backlog`):
+  - `prioridad-1`: expone o bloquea ahora (algo publicado que no debía, un control de publicación que falla).
+  - `prioridad-2`: hay que hacerlo y algo lo empuja (la Junta tiene que verlo, el siguiente paso de `docs/06`).
+  - `prioridad-3`: mejora de verdad; puede esperar semanas.
+  - `prioridad-4`: apuntado para que no se pierda.
+
+  Cuerpo para quien no estuvo hoy: qué se vio, dónde, la propuesta y el criterio de aceptación, con las D-NN, P-NNN y docs que la explican. **Es público**: nada de datos de socios. Lo que tenga que decidir la Junta no es una issue: va a `pendientes.md` y la issue lo enlaza. Las issues terminadas se cierran con un comentario de qué se hizo. Si una issue se queda sin trabajo hasta que pase algo de fuera, su **último** comentario acaba con una frase fija: «Espera a la Junta: P-NNN», «Espera a la inscripción: …», «Espera a la cuenta bancaria: …» o «Sigue abierta hasta el DD/MM: …».
 - **Lo privado** (preferencias personales, datos que no se publican) → `CLAUDE.local.md`, que git ignora. Nunca a un fichero versionado.
 
 ## 2. Todo lo legal está cotejado
