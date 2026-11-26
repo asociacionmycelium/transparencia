@@ -36,9 +36,10 @@ y abrir `http://127.0.0.1:8765/`. El generador lee el repositorio `documentos` d
 | Propuestas | Identidad y voto (docs 03 y 04) | Vacía; hueco #5 |
 | Datos | Lotes del ERP | Vacía; hueco #3 |
 | Una invitación | `manifiesto.md` | Real; el correo de contacto lo valida la Junta (P-012) |
-| Red de filamentos | Sin lotes: unos pocos filamentos sembrados con el nombre | Con lotes, la huella del último (#2) |
+| Red de filamentos | Sin lotes: un filamento por seta, sembrado con el nombre, que se afina y se apaga hacia abajo | Con lotes, la huella del último (#2) |
 
 ## Reglas
 - Nada inventado: si no hay dato, la sección lo dice.
 - Ningún dato de socios: ni nombres, ni autores de commits, ni correos personales. El domicilio, solo dentro de los Estatutos enlazados (D15).
 - Si una fuente cambia de forma (falta una sección del manifiesto, cambian las columnas de `pendientes.md`), el generador se para en vez de publicar algo a medias.
+- La red de filamentos también para el generador: cada seta tiene su filamento, ninguna rama empieza a crecer antes de que su madre llegue a donde nace y ningún punto se sale de la franja de la red.

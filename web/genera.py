@@ -209,66 +209,160 @@ def asuntos():
 ANCHO, ALTO = 1000, 6000
 # La red ocupa solo la franja derecha (de IZQ a ANCHO): el texto queda limpio.
 IZQ = 570
-BROTES = [835, 715, 940, 610]               # de aquí salen los filamentos y las setas
 SETAS = [(835, 106, 52), (715, 80, 40), (940, 60, 30), (610, 44, 24)]  # x, alto, radio
+BROTES = [x for x, _, _ in SETAS]                # cada seta tiene su filamento (#9)
 
 
-def trazo(pts):
-    """Curva suave que pasa por los puntos medios (cuadráticas encadenadas)."""
-    if len(pts) < 3:
+def trazo(pts, desde=0, hasta=None):
+    """Curva suave que pasa por los puntos medios (cuadráticas encadenadas).
+
+    Dibuja el trozo entre los nudos `desde` y `hasta`: el primer y el último punto
+    y los puntos medios entre vecinos. Sin argumentos, la curva entera.
+    """
+    n = len(pts) - 1
+    if hasta is None:
+        hasta = n
+    if n == 1:
         return "M" + "L".join(f"{x:.0f} {y:.0f}" for x, y in pts)
-    d = f"M{pts[0][0]:.0f} {pts[0][1]:.0f}Q{pts[1][0]:.0f} {pts[1][1]:.0f} " \
-        f"{(pts[1][0] + pts[2][0]) / 2:.0f} {(pts[1][1] + pts[2][1]) / 2:.0f}"
-    for i in range(2, len(pts) - 1):
-        d += f"T{(pts[i][0] + pts[i + 1][0]) / 2:.0f} {(pts[i][1] + pts[i + 1][1]) / 2:.0f}"
-    return d + f"T{pts[-1][0]:.0f} {pts[-1][1]:.0f}"
+
+    def nudo(j):
+        if j == 0 or j == n:
+            return pts[j]
+        return ((pts[j][0] + pts[j + 1][0]) / 2, (pts[j][1] + pts[j + 1][1]) / 2)
+
+    x0, y0 = nudo(desde)
+    cx, cy = pts[desde + 1]
+    x1, y1 = nudo(desde + 1)
+    d = f"M{x0:.0f} {y0:.0f}Q{cx:.0f} {cy:.0f} {x1:.0f} {y1:.0f}"
+    for j in range(desde + 2, hasta + 1):
+        x, y = nudo(j)
+        d += f"T{x:.0f} {y:.0f}"
+    return d
 
 
-def red(semilla, brotes, densa):
-    """Densa cuando haya lotes (semilla: huella del último, issue #2); escasa sin ellos."""
+def filamentos(semilla, brotes, densa):
+    """Geometría de la red: densa cuando haya lotes (semilla: huella del último, issue #2);
+    escasa sin ellos, y entonces se apaga poco a poco hacia el fondo.
+
+    Devuelve (pts, gen, madre, nace) por trazo: `madre` es el índice del trazo del que
+    nace (None en los troncos) y `nace`, el índice del punto de la madre donde nace.
+    """
     rng = random.Random(int(semilla, 16))
     paso = 30
     if densa:
         vida0, ramifica, max_gen = 400, [0.06, 0.04, 0.025], 3
         vida = [None, (22, 60), (10, 30), (5, 14)]
     else:
-        vida0, ramifica, max_gen = 46, [0.07, 0.0, 0.0], 1
+        vida0, ramifica, max_gen = 400, [0.07, 0.0, 0.0], 1
         vida = [None, (6, 18)]
-    cola = [(x, 0.0, math.pi / 2 + rng.uniform(-0.2, 0.2), 0, vida0 + rng.randint(-8, 8) * (not densa))
-            for x in brotes]
+    cola = []
+    for x in brotes:
+        ang = math.pi / 2 + rng.uniform(-0.2, 0.2)
+        # Sin lotes, cada tronco baja hasta una profundidad propia y ahí se acaba.
+        fondo = ALTO if densa else rng.uniform(0.55, 0.65) * ALTO
+        cola.append((x, 0.0, ang, 0, vida0, fondo, None, 0))
     trazos = []
     while cola and len(trazos) < 520:
-        x, y, ang, gen, pasos = cola.pop(0)
+        x, y, ang, gen, pasos, fondo, madre, nace = cola.pop(0)
         pts = [(x, y)]
         for _ in range(pasos):
             ang += rng.gauss(0, 0.2)
             ang += (math.pi / 2 - ang) * (0.06 if gen == 0 else 0.012)
-            if x < IZQ + 90:               # cerca del texto, se aparta poco a poco
-                ang -= 0.12 * math.sin(ang)
+            # Cerca de los bordes se aparta poco a poco, como junto al texto.
+            if x < IZQ + 90:
+                ang += (0.12 + 0.18 * (IZQ + 90 - x) / 90) * math.sin(0 - ang)
+            if x > ANCHO - 15 - 90:
+                ang += (0.12 + 0.18 * (x - (ANCHO - 15 - 90)) / 90) * math.sin(math.pi - ang)
+
+            def cabe(a):
+                nx = x + math.cos(a) * paso
+                ny = y + math.sin(a) * paso
+                return IZQ <= nx <= ANCHO - 15 and ny >= 12
+
+            # Si aun así se saldría, gira lo justo para quedarse dentro.
+            if not cabe(ang):
+                for n in range(1, 64):
+                    d = n * 0.05
+                    if cabe(ang + d):
+                        ang += d
+                        break
+                    if cabe(ang - d):
+                        ang -= d
+                        break
             x += math.cos(ang) * paso
             y += math.sin(ang) * paso
-            if y < 12:
-                y, ang = 12, -ang
-            if not IZQ < x < ANCHO - 15:   # rebota en los bordes en vez de salirse
-                x, ang = min(max(x, IZQ), ANCHO - 15), math.pi - ang
-            if y > ALTO:
+            if y > fondo:
                 break
             pts.append((x, y))
-            if gen < max_gen and rng.random() < ramifica[gen]:
-                lo, hi = vida[gen + 1]
-                cola.append((x, y, ang + rng.choice([-1, 1]) * rng.uniform(0.5, 1.15),
-                             gen + 1, rng.randint(lo, hi)))
+            if gen < max_gen:
+                p = ramifica[gen] * (1 if densa else 1 - y / fondo)   # cuanto más hondo, menos ramas
+                if rng.random() < p:
+                    lo, hi = vida[gen + 1]
+                    cola.append((x, y, ang + rng.choice([-1, 1]) * rng.uniform(0.5, 1.15),
+                                 gen + 1, rng.randint(lo, hi), ALTO, len(trazos), len(pts) - 1))
         if len(pts) > 1:
-            trazos.append((pts, gen))
+            trazos.append((pts, gen, madre, nace))
+    return trazos
+
+
+def _llega(trazos, ti, n):
+    """Momento (en %) en que la madre del trazo n llega al punto donde nace."""
+    _, _, madre, nace = trazos[n]
+    i_m, f_m = ti[madre]
+    return i_m + (f_m - i_m) * nace / (len(trazos[madre][0]) - 1)
+
+
+def tiempos(trazos):
+    """Tramo del scroll (--i, --f, en %) en el que crece cada trazo, ya redondeado.
+
+    Los troncos, por su profundidad; cada rama empieza cuando su madre llega a donde
+    nace y crece a su ritmo, así el crecimiento sigue unido.
+    """
+    ti = []
+    for n, (pts, gen, madre, nace) in enumerate(trazos):
+        if madre is None:
+            y1 = max(p[1] for p in pts)
+            i = round(pts[0][1] / ALTO * 88 + 2, 1)
+            f = round(max(y1 / ALTO * 88 + 7, i + 3), 1)
+        else:
+            i_m, f_m = ti[madre]
+            n_m = len(trazos[madre][0]) - 1
+            i = math.ceil(_llega(trazos, ti, n) * 10 - 1e-9) / 10
+            f = round(i + max((f_m - i_m) * (len(pts) - 1) / n_m, 3), 1)
+        ti.append((i, f))
+    return ti
+
+
+def red(semilla, brotes, densa):
+    """SVG de la red. Las puntas se dibujan en tramos cada vez más finos y tenues (--p)."""
+    trazos = filamentos(semilla, brotes, densa)
+    ti = tiempos(trazos)
+
+    for x, _, _ in SETAS:
+        if not any(gen == 0 and madre is None and pts[0] == (x, 0.0) for pts, gen, madre, _ in trazos):
+            para(f"la seta de x={x} no tiene filamento")
+    for n, (pts, gen, madre, nace) in enumerate(trazos):
+        if not all(IZQ <= x <= ANCHO - 15 and y >= 0 for x, y in pts):
+            para(f"el filamento {n} se sale de la franja de la red")
+        if madre is not None and ti[n][0] < _llega(trazos, ti, n) - 1e-9:
+            para(f"la rama {n} empieza a crecer antes de que su madre llegue a donde nace")
 
     partes = [f'<svg viewBox="0 0 {ANCHO} {ALTO}" role="presentation">']
-    for pts, gen in trazos:
-        y0 = pts[0][1]
-        y1 = max(p[1] for p in pts)
-        # Tramo del scroll en el que crece: de cuando asoma a cuando está entero.
-        i = y0 / ALTO * 88 + 2
-        f = max(y1 / ALTO * 88 + 7, i + 3)
-        partes.append(f'<path class="g{gen}" pathLength="1" style="--i:{i:.1f}%;--f:{f:.1f}%" d="{trazo(pts)}"/>')
+    for (pts, gen, _, _), (i, f) in zip(trazos, ti):
+        N = len(pts) - 1
+        m = min(3, N // 4)
+
+        def fr(j):
+            return 0 if j == 0 else min(j + 0.5, N) / N
+
+        trozos = [(0, N - 2 * m, None)]
+        for q in range(1, m + 1):
+            trozos.append((N - 2 * (m - q + 1), N - 2 * (m - q), 1 - q / (m + 1)))
+        for a, b, p in trozos:
+            ia = round(i + (f - i) * fr(a), 1)
+            fb = round(i + (f - i) * fr(b), 1)
+            estilo = f"--i:{ia:.1f}%;--f:{fb:.1f}%" + ("" if p is None else f";--p:{p:.2f}")
+            partes.append(f'<path class="g{gen}" pathLength="1" style="{estilo}" d="{trazo(pts, a, b)}"/>')
     partes.append("</svg>")
     return "\n".join(partes), len(trazos)
 
@@ -291,7 +385,7 @@ def setas():
 
 def main():
     # Sin lotes todavía: unos pocos filamentos, sembrados con el nombre.
-    red_vacia, n0 = red(hashlib.sha256("Asociación Mycelium".encode()).hexdigest(), BROTES[:3], densa=False)
+    red_vacia, n0 = red(hashlib.sha256("Asociación Mycelium".encode()).hexdigest(), BROTES, densa=False)
     bloques = {
         **bloques_manifiesto(),
         "cambios": cambios(),
