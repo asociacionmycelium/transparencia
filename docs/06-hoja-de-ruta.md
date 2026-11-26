@@ -2,7 +2,7 @@
 
 ## Orden acordado
 0. ~~**Repositorio público de documentos institucionales**~~ (D16–D21): hecho el 24/11/2026 en [`documentos`](https://github.com/asociacionmycelium/documentos). Si el Registro pide cambios en los Estatutos, actualizarlos en un commit propio con el motivo. Tras la inscripción, publicar la composición de la Junta (art. 46.3 de los Estatutos, dentro del mes siguiente a la aprobación de las cuentas).
-1. **Landing de la asociación** (siguiente paso; ver `07-landing.md`). Base de diseño hecha el 26/11/2026 en [`demo/`](../demo/README.md) (D26): falta pulirla, enseñarla a la Junta (P-012) y decidir cómo se produce la definitiva. Motivo: aún no hay cuenta bancaria ni inscripción, así que no hay cuentas que publicar.
+1. **Landing de la asociación** (siguiente paso; ver `07-landing.md`). Base de diseño hecha el 26/11/2026 en [`demo/`](../demo/README.md) (D26): falta pulirla, enseñarla a la Junta (P-012) y decidir cómo se produce la definitiva. Primer trabajo: decidir qué enseña ya con lo que hay de verdad hoy y hacer esa versión ([#1](https://github.com/asociacionmycelium/transparencia/issues/1)). Motivo: aún no hay cuenta bancaria ni inscripción, así que no hay cuentas que publicar.
 2. **Alcance de la v1 de la plataforma.** Propuesta de Claude: solo cuentas públicas — agente publicando desde Excel/CSV, log verificable con anclaje y web sencilla. Útil desde el día uno y sin necesidad de identidad. Votación y gobierno en una segunda fase. Arrancar cuando haya cuenta bancaria.
 3. **Diseño RGPD del log** (doc 05).
 4. **Mecánica de propuestas y votación** (doc 04).
@@ -11,6 +11,8 @@
 7. **Responsabilidad como plataforma**: condiciones de uso, moderación (LSSI), menores.
 8. **Proyecto open source**: AGPLv3, gobernanza de contribuciones y hoja de ruta (podría decidirse con la propia plataforma), nombre (comprobar OEPM y EUIPO).
 9. **Arquitectura técnica**: stack, hosting, formato de lotes, API.
+
+El trabajo concreto de cada paso está en las [issues](https://github.com/asociacionmycelium/transparencia/issues) del repositorio, con su prioridad (D27).
 
 ## Pendientes operativos (24/11/2026)
 - ~~**Dominio verificado en GitHub**~~: hecho el 24/11/2026 (`asociacionmycelium.org`).
