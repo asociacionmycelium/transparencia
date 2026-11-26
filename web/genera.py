@@ -8,6 +8,7 @@ guion a partir de las fuentes reales, nunca a mano:
   cambios                              git log de documentos (sin autor)
   asuntos                              documentos/junta/pendientes.md
   red, setas                           la red de filamentos (sin lotes todavía)
+  tarjeta (y publico/tarjeta.png)       publico/estilo.css, las setas y la red
 
 El único dato escrito aquí es ESTADO (constitución e inscripción), porque no
 tiene otra fuente. La maqueta de demo/ es la guía de diseño y no se toca: lo
@@ -24,8 +25,10 @@ import math
 import os
 import random
 import re
+import struct
 import subprocess
 import sys
+import zlib
 from html import escape
 from pathlib import Path
 
@@ -33,6 +36,10 @@ AQUI = Path(__file__).parent
 PAGINA = AQUI / "publico" / "index.html"
 DOCUMENTOS = Path(os.environ.get("MYCELIUM_DOCUMENTOS", AQUI.parent.parent / "documentos")).resolve()
 GITHUB_DOCUMENTOS = "https://github.com/asociacionmycelium/documentos"
+NOMBRE = "Asociación Mycelium"
+URL = "https://asociacionmycelium.org/"   # dominio previsto (doc 07); si #15 decide otro, se cambia aquí
+TARJETA = AQUI / "publico" / "tarjeta.png"
+ESTILO = AQUI / "publico" / "estilo.css"
 
 # Estado del registro. Es lo único que se escribe a mano: cambia cuando el
 # Registro Nacional de Asociaciones resuelva (ver docs/07-landing.md).
@@ -354,6 +361,19 @@ def red(semilla, brotes, densa):
             para(f"la rama {n} empieza a crecer antes de que su madre llegue a donde nace")
 
     partes = [f'<svg viewBox="0 0 {ANCHO} {ALTO}" role="presentation">']
+    for gen, p, d, ia, fb in tramos_red(trazos, ti):
+        estilo = f"--i:{ia:.1f}%;--f:{fb:.1f}%" + ("" if p is None else f";--p:{p:.2f}")
+        partes.append(f'<path class="g{gen}" pathLength="1" style="{estilo}" d="{d}"/>')
+    partes.append("</svg>")
+    return "\n".join(partes), len(trazos)
+
+
+def tramos_red(trazos, ti):
+    """Un tramo por cada <path> de la red, en orden: (gen, p, d, --i, --f).
+
+    p es None en el tramo sin afinar. Lo usan el SVG de la página y la tarjeta.
+    """
+    tramos = []
     for (pts, gen, _, _), (i, f) in zip(trazos, ti):
         N = len(pts) - 1
         m = min(3, N // 4)
@@ -367,46 +387,309 @@ def red(semilla, brotes, densa):
         for a, b, p in trozos:
             ia = round(i + (f - i) * fr(a), 1)
             fb = round(i + (f - i) * fr(b), 1)
-            estilo = f"--i:{ia:.1f}%;--f:{fb:.1f}%" + ("" if p is None else f";--p:{p:.2f}")
-            partes.append(f'<path class="g{gen}" pathLength="1" style="{estilo}" d="{trazo(pts, a, b)}"/>')
-    partes.append("</svg>")
-    return "\n".join(partes), len(trazos)
+            tramos.append((gen, p, trazo(pts, a, b), ia, fb))
+    return tramos
 
 
-def setas():
-    alto = 170
-    partes = [f'<svg viewBox="0 0 {ANCHO} {alto}" role="presentation">']
+ALTO_SETAS = 170
+
+
+def formas_setas():
+    """La ruta d de cada seta, en el viewBox de las setas (ANCHO × ALTO_SETAS)."""
+    alto = ALTO_SETAS
+    formas = []
     for x, h, r in SETAS:
         base, pie, c = alto, r * 0.2, r * 0.82
         cy = base - h
-        partes.append(
-            f'<path d="M{x - pie:.0f} {base}L{x - pie * 0.7:.0f} {cy:.0f}L{x + pie * 0.7:.0f} {cy:.0f}L{x + pie:.0f} {base}Z'
+        formas.append(
+            f'M{x - pie:.0f} {base}L{x - pie * 0.7:.0f} {cy:.0f}L{x + pie * 0.7:.0f} {cy:.0f}L{x + pie:.0f} {base}Z'
             f'M{x - r} {cy:.0f}Q{x - r} {cy - c:.0f} {x} {cy - c * 1.06:.0f}Q{x + r} {cy - c:.0f} {x + r} {cy:.0f}'
-            f'Q{x} {cy + r * 0.2:.0f} {x - r} {cy:.0f}Z"/>')
+            f'Q{x} {cy + r * 0.2:.0f} {x - r} {cy:.0f}Z')
+    return formas
+
+
+def setas():
+    partes = [f'<svg viewBox="0 0 {ANCHO} {ALTO_SETAS}" role="presentation">']
+    for d in formas_setas():
+        partes.append(f'<path d="{d}"/>')
     partes.append("</svg>")
     return "\n".join(partes)
+
+
+# ---------- Tarjeta al compartir ----------
+#
+# La imagen de Open Graph (1200 × 630, PNG: las redes no aceptan SVG). Sale de
+# lo mismo que la cabecera: el color de la superficie, las setas y el arranque
+# de la red, con los colores y trazos de estilo.css. Sin texto: el título y la
+# frase van en og:title y og:description.
+
+T_ANCHO, T_ALTO = 1200, 630
+E = 1.2                     # los 1000 de ancho del viewBox ocupan los 1200 px
+SUELO = 380                 # primera fila de tierra
+SUBFILAS = 4                # muestras verticales por fila al rellenar
+MAX_TARJETA = 300 * 1024    # lo que aceptan WhatsApp y compañía
+FIRMA_PNG = b"\x89PNG\r\n\x1a\n"
+ALT_TARJETA = "Setas oscuras sobre la superficie de la asociación y, bajo tierra, los primeros filamentos de su red."
+
+
+def estilo_tarjeta():
+    """Colores (--superficie, --tierra, --hifa) y, por generación, (grosor, opacidad) de la red."""
+    try:
+        css = ESTILO.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        para(f"no encuentro {ESTILO}; la tarjeta lo necesita")
+    raiz = re.search(r":root\s*\{(.*?)\}", css, re.S)
+    variables = dict((k, v.strip()) for k, v in re.findall(r"--([\w-]+):\s*([^;]+);", raiz.group(1))) if raiz else {}
+    colores = {}
+    for nombre in ("superficie", "tierra", "hifa"):
+        valor, vistos = variables.get(nombre, ""), set()
+        while (m := re.fullmatch(r"var\(--([\w-]+)\)", valor)) and m.group(1) not in vistos:
+            vistos.add(m.group(1))
+            valor = variables.get(m.group(1), "")
+        if not valor or valor.startswith("var("):
+            para(f"estilo.css no define --{nombre} en :root; la tarjeta la necesita")
+        if not re.fullmatch(r"#[0-9A-Fa-f]{6}", valor):
+            para(f"estilo.css da a --{nombre} el valor «{valor}»; la tarjeta necesita un color #RRGGBB")
+        colores[nombre] = tuple(int(valor[k:k + 2], 16) for k in (1, 3, 5))
+    generaciones = {}
+    for gen, cuerpo in re.findall(r"\.red\s+\.g(\d+)\s*\{([^}]*)\}", css):
+        w = re.search(r"--w:\s*(\d+(?:\.\d+)?)px\s*;", cuerpo)
+        o = re.search(r"--o:\s*(\d+(?:\.\d+)?)\s*;", cuerpo)
+        if w and o:
+            generaciones.setdefault(int(gen), (float(w.group(1)), float(o.group(1))))
+    return colores, generaciones
+
+
+def subrutas(d):
+    """Puntos de cada subruta de una ruta d (M, L, Q, T y Z) y si está cerrada.
+
+    Cada cuadrática se aplana en 16 tramos; T refleja el control de la anterior,
+    como en SVG.
+    """
+    fichas = re.findall(r"[A-Za-z]|-?\d+(?:\.\d+)?", d)
+    rutas, pts = [], None
+    x = y = 0.0
+    qx = qy = None          # control de la última cuadrática (para T)
+    orden, i = None, 0
+    while i < len(fichas):
+        if fichas[i].isalpha():
+            orden = fichas[i]
+            i += 1
+            if orden == "Z":
+                if pts:
+                    rutas.append((pts, True))
+                    x, y = pts[0]
+                pts, qx, qy = None, None, None
+                continue
+        n = {"M": 2, "L": 2, "Q": 4, "T": 2}.get(orden)
+        v = fichas[i:i + n] if n else []
+        if not n or len(v) != n or any(t.isalpha() for t in v):
+            para(f"no sé dibujar la ruta «{d[:40]}…» en la tarjeta")
+        v = [float(t) for t in v]
+        i += n
+        if orden == "M":
+            if pts and len(pts) > 1:
+                rutas.append((pts, False))
+            x, y = v
+            pts, qx, qy = [(x, y)], None, None
+            orden = "L"
+            continue
+        if pts is None:
+            pts = [(x, y)]
+        if orden == "L":
+            x, y = v
+            pts.append((x, y))
+            qx = qy = None
+            continue
+        if orden == "Q":
+            cx, cy, nx, ny = v
+        else:
+            cx, cy = (x, y) if qx is None else (2 * x - qx, 2 * y - qy)
+            nx, ny = v
+        for k in range(1, 17):
+            t = k / 16
+            pts.append(((1 - t) ** 2 * x + 2 * (1 - t) * t * cx + t * t * nx,
+                        (1 - t) ** 2 * y + 2 * (1 - t) * t * cy + t * t * ny))
+        x, y, qx, qy = nx, ny, cx, cy
+    if pts and len(pts) > 1:
+        rutas.append((pts, False))
+    return rutas
+
+
+def cubre_relleno(pts, cob):
+    """Cobertura (0..1) de un polígono cerrado: SUBFILAS muestras por fila y,
+    en horizontal, la parte exacta de cada píxel que queda dentro."""
+    aristas = [(pts[k], pts[(k + 1) % len(pts)]) for k in range(len(pts))]
+    aristas = [(a, b) for a, b in aristas if a[1] != b[1]]
+    if not aristas:
+        return
+    j0 = max(0, math.floor(min(p[1] for p in pts)))
+    j1 = min(T_ALTO - 1, math.ceil(max(p[1] for p in pts)))
+    propia = {}
+    for j in range(j0, j1 + 1):
+        for s in range(SUBFILAS):
+            yy = j + (s + 0.5) / SUBFILAS
+            xs = sorted(x0 + (yy - y0) * (x1 - x0) / (y1 - y0)
+                        for (x0, y0), (x1, y1) in aristas if min(y0, y1) <= yy < max(y0, y1))
+            for xa, xb in zip(xs[0::2], xs[1::2]):
+                xa, xb = max(xa, 0.0), min(xb, float(T_ANCHO))
+                for i in range(math.floor(xa), min(math.ceil(xb), T_ANCHO)):
+                    tramo = min(xb, i + 1) - max(xa, i)
+                    if tramo > 0:
+                        propia[(i, j)] = propia.get((i, j), 0.0) + tramo / SUBFILAS
+    for k, c in propia.items():
+        c = min(c, 1.0)
+        if c > cob.get(k, 0.0):
+            cob[k] = c
+
+
+def cubre_trazo(pts, grosor, cob):
+    """Cobertura de un trazo: cada segmento, una cápsula con el borde suave de 1 px."""
+    r = grosor / 2 + 0.5
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        i0, i1 = max(0, math.floor(min(x0, x1) - r)), min(T_ANCHO - 1, math.ceil(max(x0, x1) + r))
+        j0, j1 = max(0, math.floor(min(y0, y1) - r)), min(T_ALTO - 1, math.ceil(max(y0, y1) + r))
+        if i0 > i1 or j0 > j1:
+            continue
+        dx, dy = x1 - x0, y1 - y0
+        ll = dx * dx + dy * dy
+        for j in range(j0, j1 + 1):
+            py = j + 0.5
+            for i in range(i0, i1 + 1):
+                px = i + 0.5
+                t = 0.0 if ll == 0 else max(0.0, min(1.0, ((px - x0) * dx + (py - y0) * dy) / ll))
+                c = max(0.0, min(1.0, r - math.hypot(px - x0 - t * dx, py - y0 - t * dy)))
+                if c > cob.get((i, j), 0.0):
+                    cob[(i, j)] = c
+
+
+def mezcla(lienzo, cob, color, opacidad):
+    """Pone una forma sobre lo que hay: fondo · (1 − a) + color · a."""
+    for (i, j), c in cob.items():
+        a = c * opacidad
+        if a <= 0:
+            continue
+        o = (j * T_ANCHO + i) * 3
+        for k in range(3):
+            lienzo[o + k] = max(0, min(255, round(lienzo[o + k] * (1 - a) + color[k] * a)))
+
+
+def dibuja_tarjeta(semilla):
+    """Los píxeles RGB de la tarjeta: superficie, setas, tierra y el arranque de la red."""
+    colores, generaciones = estilo_tarjeta()
+    superficie, tierra, hifa = colores["superficie"], colores["tierra"], colores["hifa"]
+    lienzo = bytearray(bytes(superficie) * (T_ANCHO * SUELO) + bytes(tierra) * (T_ANCHO * (T_ALTO - SUELO)))
+
+    for d in formas_setas():
+        cob = {}
+        for pts, _ in subrutas(d):
+            cubre_relleno([(E * x, SUELO - E * (ALTO_SETAS - y)) for x, y in pts], cob)
+        mezcla(lienzo, cob, tierra, 1.0)
+
+    trazos = filamentos(semilla, BROTES, densa=False)
+    for gen, p, d, _, _ in tramos_red(trazos, tiempos(trazos)):
+        if gen not in generaciones:
+            para(f"estilo.css no da grosor y opacidad a la generación g{gen} de la red; la tarjeta los necesita")
+        w, o = generaciones[gen]
+        p = 1.0 if p is None else float(f"{p:.2f}")     # el --p que lleva la página
+        cob = {}
+        for pts, cerrada in subrutas(d):
+            pts = [(E * x, SUELO + E * y) for x, y in pts]
+            cubre_trazo(pts + pts[:1] if cerrada else pts, E * w * p, cob)
+        mezcla(lienzo, cob, hifa, o * p)
+    return lienzo
+
+
+def trozo_png(tipo, datos):
+    return struct.pack(">I", len(datos)) + tipo + datos + struct.pack(">I", zlib.crc32(tipo + datos))
+
+
+def tarjeta(semilla):
+    """El PNG de la tarjeta y sus filas en crudo. RGB de 8 bits, filtro 0 y sin
+    fecha ni texto: las mismas fuentes dan los mismos bytes."""
+    lienzo = dibuja_tarjeta(semilla)
+    fila = T_ANCHO * 3
+    crudo = b"".join(b"\x00" + bytes(lienzo[j * fila:(j + 1) * fila]) for j in range(T_ALTO))
+    datos = (FIRMA_PNG
+             + trozo_png(b"IHDR", struct.pack(">IIBBBBB", T_ANCHO, T_ALTO, 8, 2, 0, 0, 0))
+             + trozo_png(b"IDAT", zlib.compress(crudo, 9))
+             + trozo_png(b"IEND", b""))
+    if len(datos) >= MAX_TARJETA:
+        kb = f"{len(datos) / 1024:.0f}"
+        para(f"la tarjeta pesa {kb} KB; las redes piden menos de 300")
+    return datos, crudo
+
+
+def crudo_png(ruta):
+    """Las filas en crudo de un PNG (sus IDAT descomprimidos); None si no hay o no se lee."""
+    try:
+        b = ruta.read_bytes()
+    except FileNotFoundError:
+        return None
+    if b[:8] != FIRMA_PNG:
+        return None
+    i, idat = 8, b""
+    while i + 8 <= len(b):
+        n, = struct.unpack(">I", b[i:i + 4])
+        if b[i + 4:i + 8] == b"IDAT":
+            idat += b[i + 8:i + 8 + n]
+        i += 12 + n
+    try:
+        return zlib.decompress(idat)
+    except zlib.error:
+        return None
+
+
+def escribe_tarjeta(datos, crudo):
+    """Escribe la tarjeta solo si cambian sus píxeles: otra versión de zlib no deja un diff sin cambio real."""
+    if crudo_png(TARJETA) != crudo:
+        TARJETA.write_bytes(datos)
+
+
+def bloque_tarjeta(titular):
+    """Los metadatos Open Graph del <head>."""
+    lineas = [
+        ("og:type", "website"),
+        ("og:site_name", NOMBRE),
+        ("og:title", NOMBRE),
+        ("og:description", texto_plano(titular)),
+        ("og:url", URL),
+        ("og:locale", "es_ES"),
+        ("og:image", URL + "tarjeta.png"),
+        ("og:image:type", "image/png"),
+        ("og:image:width", str(T_ANCHO)),
+        ("og:image:height", str(T_ALTO)),
+        ("og:image:alt", ALT_TARJETA),
+    ]
+    return "\n" + "\n".join(f'<meta property="{p}" content="{escape(v, quote=True)}">' for p, v in lineas) + "\n"
 
 
 # ---------- Montaje ----------
 
 def main():
     # Sin lotes todavía: unos pocos filamentos, sembrados con el nombre.
-    red_vacia, n0 = red(hashlib.sha256("Asociación Mycelium".encode()).hexdigest(), BROTES, densa=False)
+    semilla = hashlib.sha256(NOMBRE.encode()).hexdigest()
+    red_vacia, n0 = red(semilla, BROTES, densa=False)
+    titular, _ = manifiesto()
     bloques = {
         **bloques_manifiesto(),
         "cambios": cambios(),
         "asuntos": asuntos(),
         "setas": setas(),
         "red": red_vacia,
+        "tarjeta": bloque_tarjeta(titular),
     }
+    # La imagen se genera antes de escribir nada: si un invariante para, no queda nada a medias.
+    png, crudo = tarjeta(semilla)
     html = PAGINA.read_text(encoding="utf-8")
     for nombre, contenido in bloques.items():
         patron = re.compile(rf"(<!--G:{nombre}-->).*?(<!--/G:{nombre}-->)", re.S)
         if not patron.search(html):
             para(f"falta el hueco {nombre} en {PAGINA}")
         html = patron.sub(lambda m: m.group(1) + contenido + m.group(2), html)
+    escribe_tarjeta(png, crudo)
     PAGINA.write_text(html, encoding="utf-8")
-    print(f"fuentes: {DOCUMENTOS}\nfilamentos: {n0}\n{len(html) / 1024:.0f} KB")
+    print(f"fuentes: {DOCUMENTOS}\nfilamentos: {n0}\n{len(html) / 1024:.0f} KB\ntarjeta: {len(png) / 1024:.0f} KB")
 
 
 if __name__ == "__main__":
