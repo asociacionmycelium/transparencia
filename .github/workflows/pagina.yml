@@ -1,0 +1,35 @@
+# Comprueba que web/publico está al día con las fuentes de documentos (#11).
+name: pagina
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  al-dia:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: transparencia
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: asociacionmycelium/documentos
+          path: documentos
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Regenera la página
+        working-directory: transparencia
+        env:
+          MYCELIUM_DOCUMENTOS: ${{ github.workspace }}/documentos
+        run: python3 -B web/genera.py
+      - name: Comprueba que no ha cambiado nada
+        working-directory: transparencia
+        run: git diff --exit-code -- web/publico
