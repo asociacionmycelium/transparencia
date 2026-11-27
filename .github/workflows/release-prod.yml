@@ -1,0 +1,166 @@
+# Lleva a prod la versión que QA validó (#15, D32). ES UNA PUERTA, NO UNA PROMOCIÓN: no construye
+# ni re-etiqueta nada. Copia al overlay de prod la versión y el digest que QA corre, y solo si:
+#
+#   1. existe la release vX.Y.Z;
+#   2. existe .claude/qa-reports/vX.Y.Z.md en main y su veredicto es exactamente APTO;
+#   3. el overlay de QA declara esa versión con el mismo digest que la etiqueta de GHCR;
+#   4. la imagen trae amd64 y arm64;
+#   5. la versión va hacia delante respecto a la de prod.
+#
+# El repositorio GitOps y su llave van en SECRETOS, como en release-qa (ver allí por qué). El
+# bump está apagado mientras ENABLE_BUMP no valga 'true'.
+name: release-prod
+run-name: release-prod ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión validada en QA (vX.Y.Z), con su informe APTO"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-prod
+  cancel-in-progress: false
+
+env:
+  IMAGEN: ghcr.io/asociacionmycelium/transparencia-web
+  QA: gitops/transparencia/overlays/qa/kustomization.yaml
+  PROD: gitops/transparencia/overlays/prod/kustomization.yaml
+
+jobs:
+  puerta:
+    name: puerta QA → prod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comprueba la petición
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::release-prod solo se lanza desde main"; exit 1
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eqx 'v[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::versión no válida: '$VERSION' (se espera vX.Y.Z)"; exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          printf '# release-prod %s\n\n| puerta | resultado |\n|---|---|\n' "$VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+      # El informe se escribe después de la release, así que vive en main y no en el árbol del tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: transparencia
+          persist-credentials: false
+
+      - name: "1 · La release existe"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$VERSION" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "| 1 · release | ❌ no existe $VERSION: ¿se lanzó release-qa? |" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::no existe la release $VERSION"; exit 1
+          fi
+          echo "| 1 · release | ✅ $VERSION |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "2 · El informe de QA dice APTO"
+        run: |
+          set -euo pipefail
+          informe="transparencia/.claude/qa-reports/$VERSION.md"
+          # Sin informe no se promociona: el silencio no aprueba. Y la línea se compara ENTERA:
+          # un grep APTO casaría también con NO APTO.
+          if [ ! -f "$informe" ]; then
+            echo "| 2 · informe | ❌ no hay informe de $VERSION |" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::no hay informe de QA para $VERSION"; exit 1
+          fi
+          linea=$(grep -m1 '^\*\*Veredicto:' "$informe" | tr -d '\r' || true)
+          if [ "$linea" != '**Veredicto: APTO**' ]; then
+            echo "| 2 · informe | ❌ dice: ${linea:-sin línea de veredicto} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::el informe de $VERSION no dice APTO"; exit 1
+          fi
+          echo "| 2 · informe | ✅ APTO |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "4 · La imagen está, con amd64 y arm64"
+        run: |
+          set -euo pipefail
+          if ! raw=$(docker buildx imagetools inspect "$IMAGEN:$VERSION" --raw 2>/dev/null); then
+            echo "| 4 · imagen | ❌ no existe en GHCR |" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::no existe $IMAGEN:$VERSION"; exit 1
+          fi
+          arqs=$(printf '%s' "$raw" | jq -r '[.manifests[] | select(.platform.os == "linux") | .platform.architecture] | sort | join(",")')
+          if [ "$arqs" != "amd64,arm64" ]; then
+            echo "| 4 · imagen | ❌ trae $arqs |" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::$IMAGEN:$VERSION trae '$arqs', se espera amd64,arm64"; exit 1
+          fi
+          digest=$(docker buildx imagetools inspect "$IMAGEN:$VERSION" --format '{{json .Manifest}}' | jq -r .digest)
+          echo "DIGEST=$digest" >> "$GITHUB_ENV"
+          echo "| 4 · imagen | ✅ $arqs, $digest |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Repositorio GitOps
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ secrets.GITOPS_REPO }}
+          ssh-key: ${{ secrets.GITOPS_SSH_KEY }}
+          path: gitops
+
+      - name: "3 · QA corre esa versión con ese digest"
+        run: |
+          set -euo pipefail
+          for f in "$QA" "$PROD"; do
+            if [ ! -f "$f" ] || [ "$(yq '[.images[] | select(.name == strenv(IMAGEN))] | length' "$f")" != 1 ]; then
+              echo "::error::no encuentro la imagen en $(basename "$(dirname "$f")"): ¿ha cambiado la ruta o el nombre?"; exit 1
+            fi
+          done
+          qa=$(yq '.images[] | select(.name == strenv(IMAGEN)) | .newTag + "@" + .digest' "$QA")
+          if [ "$qa" != "$VERSION@$DIGEST" ]; then
+            echo "| 3 · QA | ❌ QA declara $qa |" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::QA no corre $VERSION con el digest de GHCR: el informe validó otra cosa"; exit 1
+          fi
+          echo "| 3 · QA | ✅ $VERSION |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "5 · La versión va hacia delante"
+        run: |
+          set -euo pipefail
+          actual=$(yq '.images[] | select(.name == strenv(IMAGEN)) | .newTag' "$PROD")
+          if ! printf '%s' "$actual" | grep -Eqx 'v[0-9]+\.[0-9]+\.[0-9]+'; then
+            # Primera promoción: prod todavía no corre ninguna versión.
+            echo "| 5 · dirección | ⚠️ prod está en $actual: primera promoción |" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # >= y no >: relanzar la misma versión no hace nada y no es un error.
+          if [ "$(printf '%s\n%s\n' "$actual" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]; then
+            echo "| 5 · dirección | ❌ prod está en $actual, posterior a $VERSION |" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::prod corre $actual y $VERSION es anterior"; exit 1
+          fi
+          echo "| 5 · dirección | ✅ $actual → $VERSION |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Escribe la versión y el digest en prod
+        if: vars.ENABLE_BUMP == 'true'
+        run: |
+          set -euo pipefail
+          yq -i '(.images[] | select(.name == strenv(IMAGEN))) |= (.newTag = strenv(VERSION) | .digest = strenv(DIGEST))' "$PROD"
+          cd gitops
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${PROD#gitops/}"
+          if git diff --cached --quiet; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"; echo "prod ya estaba en $VERSION" >> "$GITHUB_STEP_SUMMARY"; exit 0
+          fi
+          git commit -q -m "transparencia: promociona $VERSION a prod"
+          # Sin salida: git push imprime el remoto, y el nombre del repositorio no se publica.
+          if ! git push -q >/dev/null 2>&1; then
+            echo "::error::no se pudo subir el bump de prod"; exit 1
+          fi
+          printf '\n**prod → %s** (%s en el repositorio GitOps)\n' "$VERSION" "\`$(git rev-parse --short HEAD)\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Bump apagado
+        if: vars.ENABLE_BUMP != 'true'
+        run: |
+          echo "::warning::ENABLE_BUMP no vale 'true': la puerta pasó, pero prod no se ha tocado"
+          printf '\n⚠️ **prod sin tocar**: ENABLE_BUMP no vale true\n' >> "$GITHUB_STEP_SUMMARY"

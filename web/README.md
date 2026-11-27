@@ -162,3 +162,17 @@ Se puede relanzar con la misma versión si falla a mitad: solo se para si esa ve
 Los manifiestos están, de forma temporal, en un repositorio GitOps de fuera de la organización (D32). El workflow lo saca de dos **secretos**: `GITOPS_REPO`, el nombre, y `GITOPS_SSH_KEY`, una llave de despliegue con escritura solo en ese repositorio. Los logs de este repositorio son públicos y solo los secretos salen enmascarados, así que ni el nombre ni el remoto se imprimen. El paso 4 solo se hace si la variable `ENABLE_BUMP` vale `true`.
 
 **Rotar la llave:** se genera otra (`ssh-keygen -t ed25519 -C transparencia-gitops`), se da de alta como llave de despliegue con escritura en el repositorio GitOps y se borra allí la vieja, se reescribe el secreto (`gh secret set GITOPS_SSH_KEY < <privada>`) y se borra la privada del disco. Cuando la asociación tenga su propio repositorio GitOps, se cambia `GITOPS_REPO`, se mueven los manifiestos y se rota la llave.
+
+### Llevar a prod
+
+Primero se valida la versión en QA con la skill `/validar-qa vX.Y.Z` (`.claude/skills/validar-qa/`). Se ejecuta desde la red local, por un port-forward al Service de QA, y termina con un informe en `.claude/qa-reports/vX.Y.Z.md`, que se sube a `main` como cualquier otro cambio. La épica de la versión tiene que llevar `vX.Y.Z — ` al principio del título para que el flujo diga si se puede validar.
+
+Después se lanza a mano `release-prod` desde Actions, sobre `main`, con la misma versión. No construye ni etiqueta nada: es una puerta. Solo escribe en el overlay de prod la versión y el digest que corre QA si se cumplen las cinco condiciones:
+
+1. Existe la release.
+2. El informe de QA existe en `main` y su línea de veredicto es exactamente `**Veredicto: APTO**`.
+3. QA declara esa versión con el mismo digest que tiene en GHCR.
+4. La imagen trae amd64 y arm64.
+5. La versión no es anterior a la que corre prod.
+
+Usa los mismos secretos y la misma variable que `release-qa`. Antes de servir prod en el dominio hacen falta la página de privacidad (#26) y los logs sin IP (#25, hecho), según D33.
