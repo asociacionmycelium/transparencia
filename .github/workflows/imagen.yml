@@ -3,6 +3,9 @@
 #
 # workflow_dispatch lo usa regenera (#12): lo que sube el token de un workflow no lanza otros
 # workflows, así que el commit de la regeneración no dispararía el push.
+#
+# Sin acciones de terceros: la organización solo admite las de GitHub (D23). docker y buildx ya
+# vienen en el runner, y aquí se llaman directamente.
 name: imagen
 
 on:
@@ -20,6 +23,8 @@ concurrency:
 
 env:
   IMAGEN: ghcr.io/asociacionmycelium/transparencia-web
+  # BuildKit para el build multiarquitectura, fijado por digest.
+  BUILDKIT: moby/buildkit:v0.35.1@sha256:baf6138eb8c37644800c7c913fba051e840ebb9ba13eaf92d92ef9a1712d0b4c
 
 jobs:
   prueba:
@@ -29,16 +34,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: web
-          file: web/imagen/Dockerfile
-          platforms: linux/amd64
-          load: true
-          tags: transparencia-web:prueba
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Construye
+        run: docker buildx build --load -t transparencia-web:prueba -f web/imagen/Dockerfile web
       - name: Arranca como en el clúster
         run: |
           docker run -d --name web --read-only --tmpfs /tmp --user 101:101 \
@@ -70,38 +67,35 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Etiqueta
-        run: echo "ETIQUETA=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      # Los workers del clúster son arm64. La etapa final no tiene RUN, así que no hace falta QEMU.
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        id: build
-        with:
-          context: web
-          file: web/imagen/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.IMAGEN }}:${{ env.ETIQUETA }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.licenses=AGPL-3.0-or-later
-            org.opencontainers.image.description=Página publicable de la Asociación Mycelium
-          cache-from: type=gha
-      - name: Resumen
-        env:
-          DIGEST: ${{ steps.build.outputs.digest }}
+      - name: Etiqueta y builder multiarquitectura
         run: |
+          echo "ETIQUETA=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          docker buildx create --name multi --driver docker-container --driver-opt "image=$BUILDKIT" --use
+      - name: Entra en GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      # Los workers del clúster son arm64. La etapa final no tiene RUN, así que no hace falta QEMU.
+      - name: Construye y publica
+        run: |
+          docker buildx build --platform linux/amd64,linux/arm64 --push \
+            -t "$IMAGEN:$ETIQUETA" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.licenses=AGPL-3.0-or-later" \
+            --metadata-file meta.json \
+            -f web/imagen/Dockerfile web
+      - name: Resumen
+        run: |
+          digest=$(jq -r '."containerimage.digest"' meta.json)
           arqs=$(docker buildx imagetools inspect "$IMAGEN:$ETIQUETA" --raw \
             | jq -r '[.manifests[] | select(.platform.os == "linux") | .platform.architecture] | sort | unique | join(",")')
           case ",$arqs," in *,arm64,*) ;; *) echo "::error::la imagen no trae arm64 ($arqs)"; exit 1 ;; esac
           {
             echo "| imagen | etiqueta | digest | arquitecturas |"
             echo "|---|---|---|---|"
-            echo "| \`$IMAGEN\` | \`$ETIQUETA\` | \`$DIGEST\` | $arqs |"
+            echo "| \`$IMAGEN\` | \`$ETIQUETA\` | \`$digest\` | $arqs |"
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Sale de GHCR
+        if: always()
+        run: docker logout ghcr.io
