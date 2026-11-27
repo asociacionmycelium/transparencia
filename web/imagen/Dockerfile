@@ -14,7 +14,7 @@ WORKDIR /w
 COPY cabeceras imagen/nginx.py ./
 RUN python3 -I nginx.py --cabeceras cabeceras --salida nginx.conf
 
-FROM nginxinc/nginx-unprivileged:1.30.6-alpine3.24@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+FROM nginxinc/nginx-unprivileged:1.31.7-alpine3.24@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
 COPY --from=conf /w/nginx.conf /etc/nginx/nginx.conf
 # Una raíz propia y vacía: en /usr/share/nginx/html quedarían las páginas de ejemplo de la imagen.
 COPY publico/ /srv/pagina/
