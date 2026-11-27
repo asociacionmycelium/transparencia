@@ -4,7 +4,7 @@
 - **Asociación Mycelium**, ámbito estatal, sin límites territoriales (puede servir a cualquiera, también fuera de España).
 - Fin: poner la tecnología al servicio del interés común — servicios tecnológicos, formación y software libre para ONG, economía social y personas u organizaciones sin recursos.
 - Metáfora fundacional: el micelio es la red subterránea que conecta y nutre; lo que se ve son las setas. Mycelium es el contenedor de valores; cada plataforma o producto tiene identidad propia. Lo que pudiera suponer competencia comercial iría en una SL aparte.
-- Dominios: `asociacionmycelium.org` y `asociacionmycelium.es` (Hostalia). Correo: `administracion@asociacionmycelium.org` (temporal en Hostalia).
+- Dominios: `asociacionmycelium.org` y `asociacionmycelium.es`, registrados en Hostalia y con el DNS en Cloudflare desde el 26/11/2026; el `.es` redirige al `.org`. Correo: `administracion@asociacionmycelium.org`, por ahora solo de recepción.
 
 ## Junta directiva
 - Cargos: Presidencia, Secretaría-Tesorería y Vicepresidencia (funciones de sustitución). Los nombres se publicarán tras la inscripción (art. 46.3 de los Estatutos).
