@@ -147,3 +147,18 @@ python3 web/imagen/comprueba.py http://127.0.0.1:8080
 `comprueba.py` pide la raíz, una fuente y una ruta que no existe. Compara cada cabecera con `cabeceras`, comprueba que el nonce cambia en cada petición, que no hay cookies y que el servidor no dice su versión. Vale igual contra QA desde la red local. Contra prod no vale tal cual, porque Cloudflare añade su script de detección de bots y sus cookies `__cf_bm` y `cf_clearance` (D33).
 
 **En GitHub** lo hace `.github/workflows/imagen.yml`. En cada pull request construye la imagen, la arranca como en el clúster (solo lectura, uid 101, sin capacidades), pasa `comprueba.py` y comprueba que los logs no guardan ni la IP, ni el `User-Agent`, ni el `Referer`, ni la query. En cada push a `main`, y cuando lo lanza `regenera`, hace lo mismo y además publica la imagen multiarquitectura como `sha-<7 primeros del commit>`. No despliega: a QA se llega con una release `vX.Y.Z` y a prod con `release-prod`, que promocionan el mismo digest sin reconstruir (D32).
+
+### Llevar a QA
+
+Se lanza a mano `release-qa` desde Actions, sobre `main`, con la versión (`vX.Y.Z`). No reconstruye nada:
+
+1. Comprueba que la página de `main` está al día con `documentos`. Si no lo está, se lanza `regenera` y se vuelve a intentar.
+2. Busca la imagen `sha-<7>` del commit, que tiene que traer amd64 y arm64, y le pone la etiqueta `vX.Y.Z` en el **mismo digest**.
+3. Crea una prerelease `vX.Y.Z` en ese commit.
+4. Escribe en el overlay de QA la versión y el digest (`newTag` y `digest`: la imagen queda como `…:vX.Y.Z@sha256:…`, y manda el digest). El despliegue lo recoge solo.
+
+Se puede relanzar con la misma versión si falla a mitad: solo se para si esa versión ya apunta a otra imagen u otro commit.
+
+Los manifiestos están, de forma temporal, en un repositorio GitOps de fuera de la organización (D32). El workflow lo saca de dos **secretos**: `GITOPS_REPO`, el nombre, y `GITOPS_SSH_KEY`, una llave de despliegue con escritura solo en ese repositorio. Los logs de este repositorio son públicos y solo los secretos salen enmascarados, así que ni el nombre ni el remoto se imprimen. El paso 4 solo se hace si la variable `ENABLE_BUMP` vale `true`.
+
+**Rotar la llave:** se genera otra (`ssh-keygen -t ed25519 -C transparencia-gitops`), se da de alta como llave de despliegue con escritura en el repositorio GitOps y se borra allí la vieja, se reescribe el secreto (`gh secret set GITOPS_SSH_KEY < <privada>`) y se borra la privada del disco. Cuando la asociación tenga su propio repositorio GitOps, se cambia `GITOPS_REPO`, se mueven los manifiestos y se rota la llave.

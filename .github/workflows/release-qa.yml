@@ -1,0 +1,175 @@
+# Lleva a QA el commit de main que se lanza (#15, D32). NO RECONSTRUYE: pone la etiqueta vX.Y.Z
+# al mismo digest que imagen.yml publicó como sha-<7>, crea una prerelease y escribe en los
+# manifiestos de QA la versión y el digest. QA solo se ve en la red local.
+#
+#   push a main  -> imagen.yml   -> sha-<7>
+#   ESTE         -> vX.Y.Z       -> overlay de QA (newTag + digest)
+#   release-prod -> mismo digest -> overlay de prod, con la comprobación de QA en verde
+#
+# Los manifiestos viven de forma TEMPORAL en un repositorio GitOps externo (D32). Su nombre y la
+# llave de despliegue van en SECRETOS (GITOPS_REPO, GITOPS_SSH_KEY), no en variables: los logs de
+# este repositorio son públicos y solo los secretos salen enmascarados. Por lo mismo, nada imprime
+# el remoto ni enlaza a ese repositorio. El bump está apagado mientras la variable ENABLE_BUMP no
+# valga 'true'.
+#
+# Sin acciones de terceros: la organización solo admite las de GitHub (D23).
+name: release-qa
+run-name: release-qa ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión semver (vX.Y.Z) para el HEAD de main"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-qa
+  cancel-in-progress: false
+
+env:
+  IMAGEN: ghcr.io/asociacionmycelium/transparencia-web
+  # Ruta dentro del repositorio GitOps. El bump busca la imagen por nombre Y por esta ruta: si
+  # alguna deja de casar, se para con error (no sale en verde sin desplegar).
+  QA: gitops/transparencia/overlays/qa/kustomization.yaml
+
+jobs:
+  promociona:
+    name: promociona a QA
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # la etiqueta y la prerelease
+      packages: write # la etiqueta vX.Y.Z en GHCR
+    steps:
+      - name: Comprueba la petición
+        env:
+          # Por env y no interpolado en el script: es texto libre.
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::release-qa solo se lanza desde main"; exit 1
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eqx 'v[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::versión no válida: '$VERSION' (se espera vX.Y.Z)"; exit 1
+          fi
+          {
+            echo "VERSION=$VERSION"
+            echo "ETIQUETA=sha-${GITHUB_SHA::7}"
+          } >> "$GITHUB_ENV"
+          printf '# release-qa %s\n\n- **commit** %s\n' "$VERSION" "\`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: transparencia
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: asociacionmycelium/documentos
+          path: documentos
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Lo que sube regenera no lanza el workflow pagina, así que la comprobación se repite aquí:
+      # no se lleva a QA una página que no coincide con documentos.
+      - name: La página está al día con documentos
+        working-directory: transparencia
+        env:
+          MYCELIUM_DOCUMENTOS: ${{ github.workspace }}/documentos
+        run: |
+          python3 -B web/genera.py
+          if ! git diff --quiet -- web/publico; then
+            git diff --stat -- web/publico
+            echo "::error::web/publico no está al día con documentos: lanza regenera y vuelve a intentarlo"; exit 1
+          fi
+
+      - name: Entra en GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      - name: Etiqueta vX.Y.Z en el mismo digest
+        run: |
+          set -euo pipefail
+          if ! raw=$(docker buildx imagetools inspect "$IMAGEN:$ETIQUETA" --raw 2>/dev/null); then
+            echo "::error::no existe $IMAGEN:$ETIQUETA: ¿ha terminado imagen.yml en este commit?"; exit 1
+          fi
+          digest=$(docker buildx imagetools inspect "$IMAGEN:$ETIQUETA" --format '{{json .Manifest}}' | jq -r .digest)
+          arqs=$(printf '%s' "$raw" | jq -r '[.manifests[] | select(.platform.os == "linux") | .platform.architecture] | sort | join(",")')
+          if [ "$arqs" != "amd64,arm64" ]; then
+            echo "::error::$IMAGEN:$ETIQUETA trae '$arqs', se espera amd64,arm64"; exit 1
+          fi
+          # Si la versión ya existe, solo vale si es este mismo digest: así se puede relanzar
+          # tras un fallo del bump sin mover una versión publicada a otra imagen.
+          if docker buildx imagetools inspect "$IMAGEN:$VERSION" --raw >/dev/null 2>&1; then
+            if [ "$(docker buildx imagetools inspect "$IMAGEN:$VERSION" --format '{{json .Manifest}}' | jq -r .digest)" != "$digest" ]; then
+              echo "::error::$IMAGEN:$VERSION ya existe con otro digest"; exit 1
+            fi
+          else
+            docker buildx imagetools create --tag "$IMAGEN:$VERSION" "$IMAGEN@$digest"
+          fi
+          echo "DIGEST=$digest" >> "$GITHUB_ENV"
+          printf -- '- **imagen** %s → %s (%s)\n' "\`$IMAGEN:$ETIQUETA\`" "\`$VERSION\`" "$arqs" >> "$GITHUB_STEP_SUMMARY"
+          printf -- '- **digest** %s\n' "\`$digest\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Sale de GHCR
+        if: always()
+        run: docker logout ghcr.io
+
+      - name: Prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release view "$VERSION" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$VERSION" --jq .sha)
+            if [ "$sha" != "$GITHUB_SHA" ]; then
+              echo "::error::la release $VERSION ya existe en otro commit ($sha)"; exit 1
+            fi
+            echo "- **release** $VERSION ya existía en este commit" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh release create "$VERSION" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "$VERSION" \
+            --notes "En QA. Imagen \`$IMAGEN:$VERSION\`, digest \`$DIGEST\`. Pasa a prod con release-prod cuando la comprobación de QA esté en verde."
+          echo "- **release** $VERSION (prerelease)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Repositorio GitOps
+        if: vars.ENABLE_BUMP == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ secrets.GITOPS_REPO }}
+          ssh-key: ${{ secrets.GITOPS_SSH_KEY }}
+          path: gitops
+
+      - name: Escribe la versión y el digest en QA
+        if: vars.ENABLE_BUMP == 'true'
+        run: |
+          set -euo pipefail
+          if [ ! -f "$QA" ] || [ "$(yq '[.images[] | select(.name == strenv(IMAGEN))] | length' "$QA")" != 1 ]; then
+            echo "::error::no encuentro la imagen en el overlay de QA: ¿ha cambiado la ruta o el nombre?"; exit 1
+          fi
+          yq -i '(.images[] | select(.name == strenv(IMAGEN))) |= (.newTag = strenv(VERSION) | .digest = strenv(DIGEST))' "$QA"
+          cd gitops
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${QA#gitops/}"
+          if git diff --cached --quiet; then
+            echo "- **QA** ya estaba en $VERSION" >> "$GITHUB_STEP_SUMMARY"; exit 0
+          fi
+          git commit -q -m "transparencia: $VERSION a QA"
+          # Sin salida: git push imprime el remoto, y el nombre del repositorio no se publica.
+          if ! git push -q >/dev/null 2>&1; then
+            echo "::error::no se pudo subir el bump de QA"; exit 1
+          fi
+          echo "- **QA** → $VERSION (\`$(git rev-parse --short HEAD)\` en el repositorio GitOps)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Bump apagado
+        if: vars.ENABLE_BUMP != 'true'
+        run: |
+          echo "::warning::ENABLE_BUMP no vale 'true': la imagen y la release están, pero QA no se ha tocado"
+          echo "- ⚠️ **QA sin tocar**: ENABLE_BUMP no vale 'true'" >> "$GITHUB_STEP_SUMMARY"
