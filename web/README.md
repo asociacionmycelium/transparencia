@@ -52,6 +52,7 @@ Hasta entonces, sus cambios salen como «No comprobada». Para dejar de reconoce
 | `publico/favicon.svg` | El icono de la pestaña: una seta como las de la cabecera, tierra sobre albero. Escrito a mano |
 | `publico/tarjeta.png` | La imagen de la tarjeta al compartir (Open Graph), de 1200×630. La dibuja `genera.py` con el color de la superficie, las setas y el arranque de la red de `publico/estilo.css` y la propia página. No se edita a mano |
 | `publico/fuentes/` | Atkinson Hyperlegible Next y Mono (SIL OFL 1.1, subconjunto latino de Fontsource), servidas desde aquí: la página no pide nada a terceros |
+| `imagen/` | La imagen que sirve `publico/` con nginx (#15): `Dockerfile`, `nginx.py`, que escribe la configuración de nginx desde `cabeceras`, y `comprueba.py`, que mira las cabeceras de lo que se sirve. Ver «Imagen» |
 
 ## De dónde sale cada sección
 
@@ -123,3 +124,26 @@ La página ya se publica en el dominio (#15). Quedan, a la espera de la Junta (P
 - La meta `robots` del `<head>`: se quita cuando esté cotejada la información legal que debe llevar la página (aviso legal y privacidad).
 - El aviso de borrador: `<p class="borrador">` y el «(borrador)» del título.
 - La «Información general» del pie (#19).
+
+## Imagen
+La página se sirve desde una imagen propia, `ghcr.io/asociacionmycelium/transparencia-web` (D32, #15): nginx sin privilegios con `publico/` dentro y nada más. Ni `genera.py`, ni `firmantes`, ni este README entran en ella.
+
+**Cómo se construye.** `imagen/Dockerfile`, con `web/` como contexto. La primera etapa ejecuta `imagen/nginx.py`, que lee `cabeceras` y escribe `nginx.conf`. La segunda copia esa configuración y `publico/` sobre `nginx-unprivileged`, fijada por digest. Dependabot mantiene al día los digests de las dos imágenes base. La etapa final no tiene `RUN`, así que la variante arm64 sale sin emulación.
+
+**El contrato con el clúster.** Escucha en el 8080 y corre como uid 101. Con la raíz de solo lectura escribe solo en `/tmp` (pid y temporales de nginx). `GET /` devuelve 200, y es lo que miran las sondas. Lleva `linux/amd64` y `linux/arm64`. Si algo de esto cambia, cambian a la vez los manifiestos del despliegue.
+
+**Las cabeceras salen de `cabeceras`.** `nginx.py` traduce el bloque `/*` al nivel del servidor, con `always`, para que un 404 también lleve la CSP. `/fuentes/*` pasa a `location /fuentes/`, donde se repiten las de `/*`: en nginx, un `add_header` dentro de una location anula los heredados. La marca `{NONCE}` pasa a ser `$request_id`, 128 bits aleatorios por petición. Si `cabeceras` no trae la CSP con el nonce, HSTS, `Referrer-Policy` y `nosniff`, o trae una ruta que no sabe traducir, se para y no se construye nada.
+
+**Los logs no guardan quién visita (#25).** El formato `sinip` registra la hora, el método, la ruta sin la query, el estado, los bytes y el tiempo. No registra la IP, ni `X-Forwarded-For`, ni `CF-Connecting-IP`, ni `User-Agent`, ni `Referer`. No hay `real_ip`: la dirección que ve nginx es la del túnel, no la de la persona. Se queda un access log, y no `access_log off`, porque es lo único que deja ver los 404 y la carga: el despliegue no tiene métricas propias. Los 404 no pasan al error log (`log_not_found off`), que sí apuntaría el cliente y el `Referer`. Cuánto duran estos logs en el clúster lo dice esta sección cuando QA esté montado (#25).
+
+**Construir y probar en local**, desde la raíz del repositorio:
+
+```
+docker buildx build --load -t transparencia-web:local -f web/imagen/Dockerfile web/
+docker run --rm -d --name web --read-only --tmpfs /tmp --user 101:101 -p 8080:8080 transparencia-web:local
+python3 web/imagen/comprueba.py http://127.0.0.1:8080
+```
+
+`comprueba.py` pide la raíz, una fuente y una ruta que no existe. Compara cada cabecera con `cabeceras`, comprueba que el nonce cambia en cada petición, que no hay cookies y que el servidor no dice su versión. Vale igual contra QA desde la red local. Contra prod no vale tal cual, porque Cloudflare añade su script de detección de bots y sus cookies `__cf_bm` y `cf_clearance` (D33).
+
+**En GitHub** lo hace `.github/workflows/imagen.yml`. En cada pull request construye la imagen, la arranca como en el clúster (solo lectura, uid 101, sin capacidades), pasa `comprueba.py` y comprueba que los logs no guardan ni la IP, ni el `User-Agent`, ni el `Referer`, ni la query. En cada push a `main`, y cuando lo lanza `regenera`, hace lo mismo y además publica la imagen multiarquitectura como `sha-<7 primeros del commit>`. No despliega: a QA se llega con una release `vX.Y.Z` y a prod con `release-prod`, que promocionan el mismo digest sin reconstruir (D32).
