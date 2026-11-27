@@ -7,7 +7,7 @@ guion a partir de las fuentes reales, nunca a mano:
   manifiesto, a-la-vista, invitacion   documentos/manifiesto.md
   cambios                              git log de documentos (sin autor)
   asuntos                              documentos/junta/pendientes.md
-  red, setas                           la red de filamentos (sin lotes todavía)
+  red, setas (y el final de publico/estilo.css)   la red de filamentos (sin lotes todavía)
   tarjeta (y publico/tarjeta.png)       publico/estilo.css, las setas y la red
 
 El único dato escrito aquí es ESTADO (constitución e inscripción), porque no
@@ -17,7 +17,7 @@ ejemplo, y llega a esta página cuando haya datos de verdad (issues #2 a #5).
 
 Las firmas de documentos se comprueban contra las claves de web/firmantes, y el
 guion se para si una fuente cambia de forma, si una seta se queda sin filamento
-o si un hueco (class="hueco") pierde hidden: mejor no publicar que publicar algo roto.
+o si un hueco (class="hueco") pierde hidden, si la página lleva algo que la CSP de web/cabeceras bloquearía o si web/cabeceras no lleva exactamente las cabeceras de CABECERAS: mejor no publicar que publicar algo roto.
 
 La página no lleva JavaScript: lo que haya que calcular se calcula aquí.
 
@@ -46,6 +46,25 @@ NOMBRE = "Asociación Mycelium"
 URL = "https://asociacionmycelium.org/"   # dominio previsto (doc 07); si #15 decide otro, se cambia aquí
 TARJETA = AQUI / "publico" / "tarjeta.png"
 ESTILO = AQUI / "publico" / "estilo.css"
+CABECERAS_FICHERO = AQUI / "cabeceras"
+
+# Las cabeceras HTTP de la página (#12). web/cabeceras tiene que llevar exactamente
+# estas; el servidor (#15) las toma de allí y cambia la marca {NONCE} por un valor
+# aleatorio en cada respuesta. El nonce es para el script que inyecta Cloudflare: la
+# página no lleva ninguno.
+CABECERAS = {
+    "/*": {
+        "Content-Security-Policy": (
+            "default-src 'self'; script-src 'nonce-{NONCE}' 'strict-dynamic'; object-src 'none'; "
+            "base-uri 'none'; frame-ancestors 'none'; form-action 'none'"),
+        "Strict-Transport-Security": "max-age=31536000",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+    },
+    "/fuentes/*": {
+        "Cache-Control": "public, max-age=31536000, immutable",
+    },
+}
 
 # Estado del registro. Es lo único que se escribe a mano: cambia cuando el
 # Registro Nacional de Asociaciones resuelva (ver docs/07-landing.md).
@@ -358,7 +377,12 @@ def tiempos(trazos):
 
 
 def red(semilla, brotes, densa):
-    """SVG de la red. Las puntas se dibujan en tramos cada vez más finos y tenues (--p)."""
+    """SVG de la red. Las puntas se dibujan en tramos cada vez más finos y tenues (--p).
+
+    Devuelve (svg, número de trazos, reglas). Cada <path> lleva su clase tN, y sus
+    variables (--i, --f, --p) van en las reglas, que acaban al final de estilo.css:
+    la CSP de web/cabeceras no deja atributos style.
+    """
     trazos = filamentos(semilla, brotes, densa)
     ti = tiempos(trazos)
 
@@ -372,11 +396,13 @@ def red(semilla, brotes, densa):
             para(f"la rama {n} empieza a crecer antes de que su madre llegue a donde nace")
 
     partes = [f'<svg viewBox="0 0 {ANCHO} {ALTO}" role="presentation">']
-    for gen, p, d, ia, fb in tramos_red(trazos, ti):
+    reglas = []
+    for n, (gen, p, d, ia, fb) in enumerate(tramos_red(trazos, ti)):
         estilo = f"--i:{ia:.1f}%;--f:{fb:.1f}%" + ("" if p is None else f";--p:{p:.2f}")
-        partes.append(f'<path class="g{gen}" pathLength="1" style="{estilo}" d="{d}"/>')
+        partes.append(f'<path class="g{gen} t{n}" pathLength="1" d="{d}"/>')
+        reglas.append(f".red .t{n}{{{estilo}}}")
     partes.append("</svg>")
-    return "\n".join(partes), len(trazos)
+    return "\n".join(partes), len(trazos), reglas
 
 
 def tramos_red(trazos, ti):
@@ -701,12 +727,136 @@ def comprobar_huecos(html):
         para(f"hay un hueco a la vista (class=\"hueco\" sin hidden) en la línea {linea} de la página generada: {etiqueta}")
 
 
+# ---------- Cabeceras y CSP ----------
+
+def comprobar_cabeceras():
+    """Para si web/cabeceras no lleva exactamente las cabeceras de CABECERAS.
+
+    Formato _headers: una línea sin sangría es una ruta; las sangradas debajo,
+    «Nombre: valor», son sus cabeceras. Se saltan las vacías y los comentarios (#).
+    """
+    try:
+        texto = CABECERAS_FICHERO.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        para(f"no encuentro {CABECERAS_FICHERO}: sin él el servidor no sabe qué cabeceras poner")
+    leidas, ruta = {}, None
+    for n, linea in enumerate(texto.splitlines(), 1):
+        limpia = linea.strip()
+        if not limpia or limpia.startswith("#"):
+            continue
+        if not linea[0].isspace():
+            if limpia in leidas:
+                para(f"web/cabeceras repite la ruta {limpia} en la línea {n}")
+            ruta = limpia
+            leidas[ruta] = {}
+            continue
+        if ruta is None:
+            para(f"web/cabeceras lleva una cabecera antes de la primera ruta, en la línea {n}")
+        if ":" not in limpia:
+            para(f"web/cabeceras lleva en la línea {n} una línea sangrada sin «Nombre: valor»: {limpia}")
+        nombre, valor = (s.strip() for s in limpia.split(":", 1))
+        if nombre in leidas[ruta]:
+            para(f"web/cabeceras repite la cabecera {nombre} de {ruta} en la línea {n}")
+        leidas[ruta][nombre] = valor
+    if leidas == CABECERAS:
+        return
+    detalle = ""
+    for r in CABECERAS:
+        if r not in leidas:
+            detalle = f"falta la ruta {r}"
+            break
+    else:
+        for r in leidas:
+            if r not in CABECERAS:
+                detalle = f"sobra la ruta {r}"
+                break
+    if not detalle:
+        for r, esperadas in CABECERAS.items():
+            for nombre, valor in esperadas.items():
+                if nombre not in leidas[r]:
+                    detalle = f"en {r} falta la cabecera {nombre}"
+                elif leidas[r][nombre] != valor:
+                    detalle = f"en {r}, {nombre} vale «{leidas[r][nombre]}» y tendría que valer «{valor}»"
+                if detalle:
+                    break
+            else:
+                for nombre in leidas[r]:
+                    if nombre not in esperadas:
+                        detalle = f"en {r} sobra la cabecera {nombre}"
+                        break
+            if detalle:
+                break
+    para(f"web/cabeceras no lleva exactamente las cabeceras de CABECERAS en genera.py: {detalle}")
+
+
+def css_con_red(css, reglas):
+    """estilo.css con el bloque G:red al final, escrito de nuevo: el anterior se quita."""
+    css = re.sub(r"\s*/\*G:red\*/.*?/\*/G:red\*/\s*", "\n", css, flags=re.S).rstrip("\n")
+    return (css + "\n\n/*G:red*/\n/* Lo escribe web/genera.py (#12), no se edita a mano: el tramo del scroll"
+            " en el que crece cada trazo de la red (--i, --f) y, en las puntas, cuánto se afina (--p)."
+            " Va aquí y no en el atributo style porque la CSP de web/cabeceras no lo deja. */\n"
+            + "\n".join(reglas) + "\n/*/G:red*/\n")
+
+
+ETIQUETAS_BLOQUEADAS = {"script", "style", "iframe", "frame", "object", "embed", "applet", "base", "form"}
+ATRIBUTOS_RECURSO = {"src", "srcset", "poster", "data", "action", "formaction"}
+ETIQUETAS_HREF = {"link", "use", "image"}
+DE_FUERA = re.compile(r"(^|,)\s*([a-zA-Z][a-zA-Z0-9+.-]*:|//)")
+
+
+class _Csp(HTMLParser):
+    """Apunta la línea y el motivo de cada cosa de la página que la CSP de web/cabeceras bloquearía."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.faltas = []
+
+    def handle_starttag(self, tag, attrs):
+        linea = self.getpos()[0]
+        if tag in ETIQUETAS_BLOQUEADAS:
+            self.faltas.append(f"la página lleva <{tag}> en la línea {linea}, que la CSP bloquearía")
+        for nombre, valor in attrs:
+            if nombre == "style":
+                self.faltas.append(f"la página lleva un atributo style en la línea {linea}, "
+                                   f"que la CSP bloquearía: {self.get_starttag_text()}")
+            elif nombre.startswith("on"):
+                self.faltas.append(f"la página lleva un manejador {nombre} en la línea {linea}, que la CSP bloquearía")
+            elif valor is not None and (nombre in ATRIBUTOS_RECURSO
+                                        or (nombre in ("href", "xlink:href") and tag in ETIQUETAS_HREF)):
+                if DE_FUERA.search(valor):
+                    self.faltas.append(f"la página pide un recurso de fuera en la línea {linea}, "
+                                       f"que la CSP bloquearía: {nombre}=\"{valor}\"")
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+
+
+def cumple_csp(html, css):
+    """Para si la página o estilo.css llevan algo que la CSP de web/cabeceras bloquearía.
+
+    La página no lleva JavaScript propio, ni siquiera con nonce: el nonce de la CSP
+    es para el script que inyecta Cloudflare. Los <a href> y los content de <meta>
+    no cargan nada y no se miran.
+    """
+    csp = _Csp()
+    csp.feed(html)
+    csp.close()
+    if csp.faltas:
+        para(csp.faltas[0])
+    if "@import" in css:
+        para("estilo.css lleva @import, que la CSP bloquearía")
+    for u in re.findall(r"url\(\s*['\"]?([^'\")]*)", css):
+        if re.match(r"\s*([a-zA-Z][a-zA-Z0-9+.-]*:|//)", u):
+            para(f"estilo.css pide algo de fuera, que la CSP bloquearía: url({u})")
+
+
 # ---------- Montaje ----------
 
 def main():
+    comprobar_cabeceras()
     # Sin lotes todavía: unos pocos filamentos, sembrados con el nombre.
     semilla = hashlib.sha256(NOMBRE.encode()).hexdigest()
-    red_vacia, n0 = red(semilla, BROTES, densa=False)
+    red_vacia, n0, reglas_red = red(semilla, BROTES, densa=False)
     titular, _ = manifiesto()
     bloques = {
         **bloques_manifiesto(),
@@ -725,8 +875,11 @@ def main():
             para(f"falta el hueco {nombre} en {PAGINA}")
         html = patron.sub(lambda m: m.group(1) + contenido + m.group(2), html)
     comprobar_huecos(html)
+    css = css_con_red(ESTILO.read_text(encoding="utf-8"), reglas_red)
+    cumple_csp(html, css)
     escribe_tarjeta(png, crudo)
     PAGINA.write_text(html, encoding="utf-8")
+    ESTILO.write_text(css, encoding="utf-8")
     print(f"fuentes: {DOCUMENTOS}\nfilamentos: {n0}\n{len(html) / 1024:.0f} KB\ntarjeta: {len(png) / 1024:.0f} KB")
 
 
