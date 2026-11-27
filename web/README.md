@@ -21,9 +21,9 @@ La página versionada tiene que ser la que sale de las fuentes. Para comprobarlo
 python3 -B web/genera.py && git diff --exit-code -- web/publico
 ```
 
-Si sale una diferencia, es que alguien ha tocado a mano lo que hay entre `<!--G:…-->` o que `documentos` ha cambiado y falta regenerar: se regenera y se sube. Si el generador se para, lo dice el mensaje: una fuente que ha cambiado de forma, una seta sin filamento o un hueco a la vista.
+Si sale una diferencia, es que alguien ha tocado a mano lo que hay entre `<!--G:…-->` o que `documentos` ha cambiado y falta regenerar: se regenera y se sube. Si el generador se para, lo dice el mensaje: una fuente que ha cambiado de forma, una seta sin filamento, un hueco a la vista, algo que la CSP bloquearía o unas cabeceras que no son las de `cabeceras`.
 
-Desde que esté en `main` el workflow `pagina` (`.github/workflows/pagina.yml`, se añade a mano tras el merge de #11), GitHub lo hace en cada push y pull request, una vez al día y a mano; hasta entonces, la comprobación es la de arriba, a mano. Saca `transparencia` y `documentos` uno al lado del otro, regenera con `MYCELIUM_DOCUMENTOS` apuntando a `documentos` y falla si `web/publico` cambia. La ejecución diaria es la que avisa cuando `documentos` avanza y nadie ha regenerado. Regenerar y desplegar solo, al cambiar `documentos`, es #12.
+Desde que esté en `main` el workflow `pagina` (`.github/workflows/pagina.yml`, se añade a mano tras el merge de #11), GitHub lo hace en cada push y pull request, una vez al día y a mano; hasta entonces, la comprobación es la de arriba, a mano. Saca `transparencia` y `documentos` uno al lado del otro, regenera con `MYCELIUM_DOCUMENTOS` apuntando a `documentos` y falla si `web/publico` cambia. La ejecución diaria es la que avisa cuando `documentos` avanza y nadie ha regenerado. Regenerar y subir solo lo que cambia en `documentos` lo hace el workflow `regenera`: ver «Regeneración».
 
 Las firmas se comprueban contra `firmantes`, no contra la configuración de git de cada máquina. `genera.py` se la pasa a git solo para esa llamada (`-c gpg.ssh.allowedSignersFile=`), sin tocar la configuración global, y por eso la página sale igual aquí y en GitHub.
 
@@ -43,10 +43,12 @@ Hasta entonces, sus cambios salen como «No comprobada». Para dejar de reconoce
 | Fichero | Qué es |
 |---|---|
 | `genera.py` | Lee las fuentes y escribe lo que hay entre `<!--G:…-->` en `publico/index.html` |
+| `regenera.py` | Regenera la página y, si cambia, la sube a `main` en un commit que firma GitHub. Lo lanza el workflow `regenera` (ver «Regeneración») |
+| `cabeceras` | Las cabeceras HTTP de la página, en formato `_headers`. El servidor de la imagen (#15) las toma de aquí. No se despliega |
 | `firmantes` | Las claves públicas con las que se firman los cambios de `documentos` (formato `allowed_signers` de ssh-keygen). Un cambio sale como «Verificada» solo si lo firma una de ellas, en cualquier máquina. No se despliega |
 | `publico/` | Lo que se sirve o despliega, tal cual. Nada más |
 | `publico/index.html` | La página. Sin JavaScript (D26) |
-| `publico/estilo.css` | Todo el aspecto. Solo lo que usa la página; el resto está en `demo/estilo.css` |
+| `publico/estilo.css` | Todo el aspecto. Solo lo que usa la página; el resto está en `demo/estilo.css`. El final, entre `/*G:red*/` y `/*/G:red*/`, lo escribe `genera.py`: el tramo del scroll en el que crece cada trazo de la red |
 | `publico/favicon.svg` | El icono de la pestaña: una seta como las de la cabecera, tierra sobre albero. Escrito a mano |
 | `publico/tarjeta.png` | La imagen de la tarjeta al compartir (Open Graph), de 1200×630. La dibuja `genera.py` con el color de la superficie, las setas y el arranque de la red de `publico/estilo.css` y la propia página. No se edita a mano |
 | `publico/fuentes/` | Atkinson Hyperlegible Next y Mono (SIL OFL 1.1, subconjunto latino de Fontsource), servidas desde aquí: la página no pide nada a terceros |
@@ -75,8 +77,49 @@ Hasta entonces, sus cambios salen como «No comprobada». Para dejar de reconoce
 - Ningún hueco a la vista: si un `class="hueco"` pierde `hidden`, el generador se para.
 - Lo que sale de `documentos` se dice desde fuera: «este repositorio» en `pendientes.md` sale en la página como «el repositorio documentos» (`desde_fuera` en `genera.py`, #6).
 - La tarjeta al compartir apunta a `URL` de `genera.py` (hoy `https://asociacionmycelium.org/`): si la página se publica en otro dominio (#15), se cambia ahí y se regenera. La imagen solo se reescribe si cambian sus píxeles, y el generador se para si `estilo.css` no da los colores o si pesa 300 KB o más.
+- La página cumple la CSP de `cabeceras`: ni `style=`, ni `<style>`, ni `<script>` (tampoco con nonce), ni manejadores `on…=`, ni recursos de fuera, y en `estilo.css` ni `@import` ni `url()` de fuera. Si no, el generador se para. Por eso las variables de cada trazo de la red van en `estilo.css` y no en el atributo `style`.
+- `cabeceras` lleva exactamente las de `CABECERAS` en `genera.py`; si no, el generador se para. Para cambiar una cabecera se cambian las dos, y #15 la recoge del fichero.
 
 ## Contraste
 Medido con WCAG 2 (mínimo AA, 4,5:1) el 26/11/2026 (#6). Sobre `--tierra`: texto y enlaces 12,98:1, tenue 6,74:1, lila 6,27:1, albero 7,82:1; tinta sobre albero, 8,53:1.
 
 En pantalla ancha el texto no llega a la franja de la red. En pantalla estrecha (≤52rem) la red pasa por detrás del texto: por eso allí es más tenue y `--tenue` sube al 75 % de hifa. Con dos troncos cruzados detrás, el peor caso, el tenue da 4,56:1 y el albero 4,52:1. Si cambian los colores o la opacidad de la red, hay que volver a medirlo.
+
+## Cabeceras
+
+Las pone el servidor de la imagen (#15), que las toma de `cabeceras` y las comprueba con `curl -I` contra ese mismo fichero. Las de `/*` valen para todas las rutas, también para `/fuentes/*`. `{NONCE}` es una marca: `_headers` no tiene nonces por petición, así que el servidor pone en su lugar un valor aleatorio distinto en cada respuesta (en nginx, `$request_id`).
+
+| Cabecera | Valor | Por qué |
+|---|---|---|
+| `Content-Security-Policy` | `default-src 'self'; script-src 'nonce-{NONCE}' 'strict-dynamic'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'` | La página no pide nada fuera del dominio: si algo así se cuela, el navegador no lo carga. `script-src` no es `'none'` por Cloudflare: prod va con Bot Fight Mode, que inyecta en cada respuesta HTML un `<script>` que carga `/cdn-cgi/challenge-platform/…`, y Cloudflare le pone el nonce que lee de esta cabecera (en una `<meta>` no le vale). La página sigue sin JavaScript propio: un `<script>` que se colara en ella no lleva el nonce y no se ejecuta. Sin `'self'` ni `'unsafe-inline'`. `form-action` va aparte porque `default-src` no la cubre, y la página no tiene formularios |
+| `Strict-Transport-Security` | `max-age=31536000` | Un año solo por HTTPS. Sin `includeSubDomains`, para no forzar HTTPS en los nombres internos que cuelgan del dominio. Sin `preload` |
+| `Referrer-Policy` | `no-referrer` | Al seguir un enlace, el otro sitio no sabe de dónde viene la visita |
+| `X-Content-Type-Options` | `nosniff` | El navegador no adivina el tipo de un fichero |
+| `Cache-Control`, solo en `/fuentes/*` | `public, max-age=31536000, immutable` | Las fuentes no cambian: se descargan una vez |
+
+Lo que sirve Cloudflare en prod puede llevar ese script de más, con el nonce de la respuesta. El resto del HTML es idéntico a `web/publico/index.html`.
+
+Con `<meta http-equiv>` en la página se perdería casi todo: HSTS no vale en una meta, `X-Content-Type-Options` y la caché de las fuentes tampoco, una CSP en `<meta>` no admite `frame-ancestors` y Cloudflare no lee el nonce de ahí. Por eso van en el servidor.
+
+## Regeneración
+
+El workflow `regenera` (`.github/workflows/regenera.yml`, se añade a mano tras el merge de #12) se ejecuta una vez al día y a mano, desde Actions. Saca `main` y `documentos` y lanza `regenera.py`, que:
+
+1. Regenera la página con `genera.py`. Si no cambia nada, dice `nada que regenerar` y acaba.
+2. Se para si un cambio de `documentos` que la página daba por «Verificada» deja de serlo: es que falta su clave en `firmantes`.
+3. Prepara el commit sin mover ninguna rama y lo pasa por `scripts/guardia.sh`. Lo que sube el token del workflow no lanza otros workflows, así que después no pasaría ninguna guardia.
+4. Lo sube a `main` con la API de GitHub, que lo firma (D23). Si `main` ha cambiado mientras tanto, no sube nada y lo intenta la pasada siguiente.
+
+Por la misma razón, ese commit tampoco construye la imagen: `regenera` la pide después por `workflow_dispatch` al workflow `imagen` de #15. Mientras ese workflow no exista, avisa y no hace nada. Va por un cron diario y no por `repository_dispatch` desde `documentos`, para que `documentos` no guarde ninguna credencial con permiso de escritura aquí: un cambio puede tardar hasta un día en llegar a `main`.
+
+Para ver qué cambiaría sin subir nada: `python3 -B web/regenera.py --sin-publicar`.
+
+La imagen nueva no se despliega sola. Un cambio de `documentos` llega a QA con la siguiente release, al crear la etiqueta `vX.Y.Z` en `main` (`release-qa`), y a prod cuando se lanza a mano `release-prod` para esa versión, con la comprobación de QA en verde. Esa cadena la monta #15: hasta entonces, la página regenerada se queda en `main`.
+
+## Pendiente de P-012
+
+La página ya se publica en el dominio (#15). Quedan, a la espera de la Junta (P-012):
+
+- La meta `robots` del `<head>`: se quita cuando esté cotejada la información legal que debe llevar la página (aviso legal y privacidad).
+- El aviso de borrador: `<p class="borrador">` y el «(borrador)» del título.
+- La «Información general» del pie (#19).
