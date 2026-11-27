@@ -1,0 +1,58 @@
+# Regenera web/publico cuando cambia documentos (#12) y lanza la construcción de la
+# imagen (#15). Ver web/README.md, «Regeneración».
+name: regenera
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regenera
+  cancel-in-progress: false
+
+jobs:
+  regenera:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      subido: ${{ steps.regenera.outputs.subido }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: asociacionmycelium/documentos
+          path: documentos
+          fetch-depth: 0
+          persist-credentials: false
+      - id: regenera
+        run: python3 -B web/regenera.py
+        env:
+          MYCELIUM_DOCUMENTOS: documentos
+          GITHUB_TOKEN: ${{ github.token }}
+
+  # Lo que sube el token del workflow no lanza otros workflows: la imagen se pide aparte.
+  imagen:
+    needs: regenera
+    if: needs.regenera.outputs.subido == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Lanza la construcción de la imagen (#15)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! gh workflow view imagen.yml > /dev/null 2>&1; then
+            echo "::warning::Aún no está el workflow imagen.yml (#15): no se construye la imagen"
+            exit 0
+          fi
+          gh workflow run imagen.yml --ref main
