@@ -5,6 +5,8 @@
 > **26/11/2026:** hay una maqueta en [`demo/`](../demo/README.md) que sirve de base de diseño (D26). Une la landing y la plataforma en una sola página. Queda por decidir si la landing definitiva sale de esa maqueta o se hace con Claude Design tomándola como referencia.
 >
 > **26/11/2026, después:** el borrador de la página que se publicará está en [`web/`](../web/README.md) (D28), con lo que existe de verdad hoy. No se publica en el dominio hasta que la Junta lo decida (P-012). El inventario está más abajo.
+>
+> **27/11/2026:** la Presidencia decide publicar el borrador en el dominio para enseñarlo a la Junta, que puede pedir cambios o que se retire (P-012). Se sirve desde la imagen de la issue [#15](https://github.com/asociacionmycelium/transparencia/issues/15).
 
 ## Objetivo
 Una página que **genere impacto y sea emotiva**, que transmita los valores de la asociación tal como están en el manifiesto y deje claro que la asociación está **en proceso de registro**.
