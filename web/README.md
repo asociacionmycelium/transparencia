@@ -1,6 +1,6 @@
 # Página publicable: lo que hay de verdad hoy
 
-Es la página que se publica en el dominio. La Presidencia decidió el 27/11/2026 publicarla para enseñarla a la Junta, que puede pedir cambios o que se retire (P-012). Lleva `noindex` hasta que esté cotejada la información legal que debe llevar.
+Es la página que se publica en el dominio. La Presidencia decidió el 27/11/2026 publicarla para enseñarla a la Junta, que puede pedir cambios o que se retire (P-012). Lleva `noindex` hasta que esté publicada la página de privacidad (#26).
 
 La maqueta de [`demo/`](../demo/README.md) es la guía de diseño y no se toca (D26, D28). Esta página sale de ella, pero solo enseña lo que existe. Lo que aún no tiene datos lo dice en la página, y en el código deja un hueco oculto (`<div class="hueco" hidden>`) con la issue que lo rellenará.
 
