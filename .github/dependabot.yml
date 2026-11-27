@@ -12,5 +12,10 @@ updates:
     directory: /web/imagen
     schedule:
       interval: weekly
+    # nginx va en la rama stable (pares: 1.30, 1.32…): solo parches. El salto a la siguiente
+    # stable se hace a mano. Las impares (1.31…) son mainline.
+    ignore:
+      - dependency-name: nginxinc/nginx-unprivileged
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     commit-message:
       prefix: "ci"

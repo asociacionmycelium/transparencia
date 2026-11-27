@@ -76,9 +76,14 @@ jobs:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
       # Los workers del clúster son arm64. La etapa final no tiene RUN, así que no hace falta QEMU.
+      # Sin atestaciones de buildx: su procedencia copia el evento de GitHub entero (mensajes de
+      # commit, autores, quién hizo el push) dentro de la imagen. Todo eso ya es público en el
+      # repositorio, pero si un día hubiera que borrar algo del historial, la imagen lo seguiría
+      # llevando.
       - name: Construye y publica
         run: |
           docker buildx build --platform linux/amd64,linux/arm64 --push \
+            --provenance=false --sbom=false \
             -t "$IMAGEN:$ETIQUETA" \
             --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
