@@ -23,7 +23,7 @@ python3 -B web/genera.py && git diff --exit-code -- web/publico
 
 Si sale una diferencia, es que alguien ha tocado a mano lo que hay entre `<!--G:…-->` o que `documentos` ha cambiado y falta regenerar: se regenera y se sube. Si el generador se para, lo dice el mensaje: una fuente que ha cambiado de forma, una seta sin filamento o un hueco a la vista.
 
-En GitHub lo hace el workflow `pagina` (`.github/workflows/pagina.yml`) en cada push y pull request, una vez al día y a mano. Saca `transparencia` y `documentos` uno al lado del otro, regenera con `MYCELIUM_DOCUMENTOS` apuntando a `documentos` y falla si `web/publico` cambia. La ejecución diaria es la que avisa cuando `documentos` avanza y nadie ha regenerado. Regenerar y desplegar solo, al cambiar `documentos`, es #12.
+Desde que esté en `main` el workflow `pagina` (`.github/workflows/pagina.yml`, se añade a mano tras el merge de #11), GitHub lo hace en cada push y pull request, una vez al día y a mano; hasta entonces, la comprobación es la de arriba, a mano. Saca `transparencia` y `documentos` uno al lado del otro, regenera con `MYCELIUM_DOCUMENTOS` apuntando a `documentos` y falla si `web/publico` cambia. La ejecución diaria es la que avisa cuando `documentos` avanza y nadie ha regenerado. Regenerar y desplegar solo, al cambiar `documentos`, es #12.
 
 Las firmas se comprueban contra `firmantes`, no contra la configuración de git de cada máquina. `genera.py` se la pasa a git solo para esa llamada (`-c gpg.ssh.allowedSignersFile=`), sin tocar la configuración global, y por eso la página sale igual aquí y en GitHub.
 

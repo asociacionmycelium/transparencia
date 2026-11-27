@@ -676,7 +676,7 @@ def bloque_tarjeta(titular):
 
 
 class _Huecos(HTMLParser):
-    """Apunta la línea de cada etiqueta con clase «hueco» que no lleva hidden."""
+    """Apunta la línea y la etiqueta de cada elemento con clase «hueco» que no lleva hidden."""
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -685,7 +685,7 @@ class _Huecos(HTMLParser):
     def handle_starttag(self, tag, attrs):
         atributos = dict(attrs)
         if "hueco" in (atributos.get("class") or "").split() and "hidden" not in atributos:
-            self.visibles.append(self.getpos()[0])
+            self.visibles.append((self.getpos()[0], self.get_starttag_text()))
 
     def handle_startendtag(self, tag, attrs):
         self.handle_starttag(tag, attrs)
@@ -697,8 +697,8 @@ def comprobar_huecos(html):
     huecos.feed(html)
     huecos.close()
     if huecos.visibles:
-        linea = huecos.visibles[0]
-        para(f"hay un hueco a la vista (class=\"hueco\" sin hidden) en la línea {linea} de {PAGINA}")
+        linea, etiqueta = huecos.visibles[0]
+        para(f"hay un hueco a la vista (class=\"hueco\" sin hidden) en la línea {linea} de la página generada: {etiqueta}")
 
 
 # ---------- Montaje ----------
